@@ -7,37 +7,13 @@ import {BLS} from "../src/lib/BLS.sol";
 
 /// @notice A simple test demonstrating BLS signature verification.
 contract BLSTest is Test {
-    /// @notice The generator point in G1 (P1).
-    BLS.G1Point G1_GENERATOR = BLS.G1Point(
-        BLS.Fp(
-            31827880280837800241567138048534752271,
-            88385725958748408079899006800036250932223001591707578097800747617502997169851
-        ),
-        BLS.Fp(
-            11568204302792691131076548377920244452,
-            114417265404584670498511149331300188430316142484413708742216858159411894806497
-        )
-    );
-
-    /// @notice The negated generator point in G1 (-P1).
-    BLS.G1Point NEGATED_G1_GENERATOR = BLS.G1Point(
-        BLS.Fp(
-            31827880280837800241567138048534752271,
-            88385725958748408079899006800036250932223001591707578097800747617502997169851
-        ),
-        BLS.Fp(
-            22997279242622214937712647648895181298,
-            46816884707101390882112958134453447585552332943769894357249934112654335001290
-        )
-    );
-
     /// @dev Demonstrates the signing and verification of a message.
     function test() public {
         // Obtain the private key as a random scalar.
         uint256 privateKey = vm.randomUint();
 
         // Public key is the generator point multiplied by the private key.
-        BLS.G1Point memory publicKey = BLS.G1Mul(G1_GENERATOR, privateKey);
+        BLS.G1Point memory publicKey = BLS.G1Mul(BLS.G1_GENERATOR(), privateKey);
 
         // Compute the message point by mapping message's keccak256 hash to a point in G2.
         bytes memory message = "hello world";
@@ -48,7 +24,7 @@ contract BLSTest is Test {
 
         // Invoke the pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
-        g1Points[0] = NEGATED_G1_GENERATOR;
+        g1Points[0] = BLS.NEGATED_G1_GENERATOR();
         g1Points[1] = publicKey;
 
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
@@ -65,8 +41,8 @@ contract BLSTest is Test {
         uint256 sk2 = vm.randomUint();
 
         // public keys
-        BLS.G1Point memory pk1 = BLS.G1Mul(G1_GENERATOR, sk1);
-        BLS.G1Point memory pk2 = BLS.G1Mul(G1_GENERATOR, sk2);
+        BLS.G1Point memory pk1 = BLS.G1Mul(BLS.G1_GENERATOR(), sk1);
+        BLS.G1Point memory pk2 = BLS.G1Mul(BLS.G1_GENERATOR(), sk2);
 
         // Compute the message point by mapping message's keccak256 hash to a point in G2.
         bytes memory message = "hello world";
@@ -81,7 +57,7 @@ contract BLSTest is Test {
 
         // Invoke the pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](3);
-        g1Points[0] = NEGATED_G1_GENERATOR;
+        g1Points[0] = BLS.NEGATED_G1_GENERATOR();
         g1Points[1] = pk1;
         g1Points[2] = pk2;
 

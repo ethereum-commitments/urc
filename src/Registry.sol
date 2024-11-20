@@ -43,9 +43,6 @@ contract Registry {
     uint256 constant TWO_EPOCHS = 64;
     uint256 constant FRAUD_PROOF_WINDOW = 7200;
 
-    BLS.G1Point public G1_GENERATOR;
-    BLS.G1Point public NEGATED_G1_GENERATOR;
-
     // Errors
     error InsufficientCollateral();
     error WrongOperator();
@@ -65,32 +62,6 @@ contract Registry {
         uint32 unregisteredAt
     );
     event OperatorDeleted(bytes32 operatorCommitment, uint72 amountToReturn);
-
-    constructor() {
-        /// @notice The generator point in G1 (P1).
-        G1_GENERATOR = BLS.G1Point(
-            BLS.Fp(
-                31827880280837800241567138048534752271,
-                88385725958748408079899006800036250932223001591707578097800747617502997169851
-            ),
-            BLS.Fp(
-                11568204302792691131076548377920244452,
-                114417265404584670498511149331300188430316142484413708742216858159411894806497
-            )
-        );
-
-        /// @notice The negated generator point in G1 (-P1).
-        NEGATED_G1_GENERATOR = BLS.G1Point(
-            BLS.Fp(
-                31827880280837800241567138048534752271,
-                88385725958748408079899006800036250932223001591707578097800747617502997169851
-            ),
-            BLS.Fp(
-                22997279242622214937712647648895181298,
-                46816884707101390882112958134453447585552332943769894357249934112654335001290
-            )
-        );
-    }
 
     function register(
         Registration[] calldata registrations,
@@ -305,7 +276,7 @@ contract Registry {
 
         // Invoke the pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
-        g1Points[0] = NEGATED_G1_GENERATOR;
+        g1Points[0] = BLS.NEGATED_G1_GENERATOR();
         g1Points[1] = publicKey;
 
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);

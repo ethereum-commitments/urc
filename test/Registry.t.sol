@@ -24,8 +24,7 @@ contract RegistryTest is Test {
         bytes memory domainSeparator = hex"";
 
         // Get the generator point
-        (BLS.Fp memory x, BLS.Fp memory y) = registry.G1_GENERATOR();
-        BLS.G1Point memory generator = BLS.G1Point(x, y);
+        BLS.G1Point memory generator = BLS.G1_GENERATOR();
 
         // Public key is the generator point multiplied by the private key.
         BLS.G1Point memory pubkey = BLS.G1Mul(generator, privateKey);
