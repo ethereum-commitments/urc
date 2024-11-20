@@ -1,6 +1,23 @@
 [profile.default]
+gas_reports=[]
 src = "src"
 out = "out"
 libs = ["lib"]
+auto_detect_solc = false
+optimizer = true
+optimizer_runs = 200
+evm_version = "cancun" # is live on mainnet
+seed = "0x1337"
+solc = "0.8.25"
+# via_ir = true
+
+alphanet = true # for testing bls precompiles
+
+[fmt]
+line_length = 120
+int_types = "long"
+tab_width = 4
+quote_style = "double"
+bracket_spacing = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
