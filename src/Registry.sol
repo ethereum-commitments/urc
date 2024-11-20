@@ -10,27 +10,21 @@ contract Registry {
     struct Registration {
         /// Compressed validator BLS public key
         BLS.G1Point pubkey; // todo compress
-        
         /// Validator BLS signature
         BLS.G2Point signature;
     }
 
     struct Operator {
         /// Compressed ECDSA key without prefix
-        bytes32 proxyKey; 
-
+        bytes32 proxyKey;
         /// The address used to deregister validators and claim collateral
         address withdrawalAddress;
-
         /// ETH collateral in GWEI
         uint56 collateral;
-
         /// The block number when registration occured
         uint32 registeredAt;
-
         /// The block number when deregistration occured
         uint32 unregisteredAt;
-
         /// The number of blocks that must elapse between deregistering and claiming
         uint16 unregistrationDelay;
     }
@@ -42,6 +36,7 @@ contract Registry {
     uint256 constant MIN_COLLATERAL = 0.1 ether;
     uint256 constant TWO_EPOCHS = 64;
     uint256 constant FRAUD_PROOF_WINDOW = 7200;
+    bytes constant DOMAIN_SEPARATOR = bytes("Universal-Registry-Contract");
 
     // Errors
     error InsufficientCollateral();
@@ -204,8 +199,7 @@ contract Registry {
         bytes memory message = bytes("");
 
         // verify signature
-        bytes memory domainSeparator = bytes("");
-        if (verifySignature(message, signature, pubkey, domainSeparator)) {
+        if (BLS.verify(message, signature, pubkey, DOMAIN_SEPARATOR)) {
             revert FraudProofChallengeInvalid();
         }
     }
@@ -261,28 +255,5 @@ contract Registry {
 
         // Clear operator info
         delete commitments[operatorCommitment];
-    }
-
-    function verifySignature(
-        bytes memory message,
-        BLS.G2Point memory signature,
-        BLS.G1Point memory publicKey,
-        bytes memory domainSeparator
-    ) public view returns (bool) {
-        // Hash the message bytes into a G2 point
-        BLS.G2Point memory messagePoint = BLS.MapFp2ToG2(
-            BLS.Fp2(BLS.Fp(0, 0), BLS.Fp(0, uint256(keccak256(message))))
-        );
-
-        // Invoke the pairing check to verify the signature.
-        BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
-        g1Points[0] = BLS.NEGATED_G1_GENERATOR();
-        g1Points[1] = publicKey;
-
-        BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
-        g2Points[0] = signature;
-        g2Points[1] = messagePoint;
-
-        return BLS.Pairing(g1Points, g2Points);
     }
 }

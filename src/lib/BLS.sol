@@ -376,4 +376,88 @@ library BLS {
                 )
             );
     }
+
+    /// @dev Referenced from https://eips.ethereum.org/EIPS/eip-2537#curve-parameters
+    function baseFieldModulus() internal pure returns (uint256[2] memory) {
+        return [
+            0x000000000000000000000000000000001a0111ea397fe69a4b1ba7b6434bacd7,
+            0x64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
+        ];
+    }
+
+    /// @notice Converts a private key to a public key by multiplying the generator point with the private key
+    /// @param privateKey The private key to convert
+    /// @return The public key
+    function toPublicKey(
+        uint256 privateKey
+    ) internal view returns (G1Point memory) {
+        return G1Mul(G1_GENERATOR(), privateKey);
+    }
+
+    /// @notice Converts a message to a G2 point
+    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
+    /// @param domainSeparator The domain separation tag
+    /// @return A point in G2
+    function toMessagePoint(
+        bytes memory message,
+        bytes memory domainSeparator
+    ) internal view returns (G2Point memory) {
+        return
+            MapFp2ToG2(
+                Fp2(
+                    Fp(0, 0),
+                    Fp(
+                        0,
+                        uint256(
+                            keccak256(
+                                abi.encodePacked(domainSeparator, message)
+                            )
+                        )
+                    )
+                )
+            );
+    }
+
+    /// @notice Signs a message
+    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
+    /// @param privateKey The private key to sign with
+    /// @param domainSeparator The domain separation tag
+    /// @return A signature in G2
+    function sign(
+        bytes memory message,
+        uint256 privateKey,
+        bytes memory domainSeparator
+    ) internal view returns (G2Point memory) {
+        return G2Mul(toMessagePoint(message, domainSeparator), privateKey);
+    }
+
+    /// @notice Verifies a signature
+    /// @param message Arbitrarylength byte string to be hashed
+    /// @param signature The signature to verify
+    /// @param publicKey The public key to verify against
+    /// @param domainSeparator The domain separation tag
+    /// @return True if the signature is valid, false otherwise
+    function verify(
+        bytes memory message,
+        G2Point memory signature,
+        G1Point memory publicKey,
+        bytes memory domainSeparator
+    ) public view returns (bool) {
+        // Hash the message bytes into a G2 point
+        BLS.G2Point memory messagePoint = toMessagePoint(
+            message,
+            domainSeparator
+        );
+
+        // Invoke the pairing check to verify the signature.
+        BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
+        g1Points[0] = NEGATED_G1_GENERATOR();
+        g1Points[1] = publicKey;
+
+        BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
+        g2Points[0] = signature;
+        g2Points[1] = messagePoint;
+
+        return BLS.Pairing(g1Points, g2Points);
+    }
 }
