@@ -8,19 +8,34 @@ contract Registry {
     using BLS for *;
 
     struct Registration {
-        BLS.G1Point pubkey;
+        /// Compressed validator BLS public key
+        BLS.G1Point pubkey; // todo compress
+        
+        /// Validator BLS signature
         BLS.G2Point signature;
     }
 
     struct Operator {
-        bytes32 commitmentKey; // compressed ecdsa key without prefix
-        address withdrawalAddress; // can be a multisig or same as commitment key
-        uint56 collateral; // amount in gwei
-        uint32 registeredAt; // block number
-        uint32 unregisteredAt; // block number
-        uint16 unregistrationDelay; // block number
+        /// Compressed ECDSA key without prefix
+        bytes32 proxyKey; 
+
+        /// The address used to deregister validators and claim collateral
+        address withdrawalAddress;
+
+        /// ETH collateral in GWEI
+        uint56 collateral;
+
+        /// The block number when registration occured
+        uint32 registeredAt;
+
+        /// The block number when deregistration occured
+        uint32 unregisteredAt;
+
+        /// The number of blocks that must elapse between deregistering and claiming
+        uint16 unregistrationDelay;
     }
 
+    /// Mapping from registration merkle roots to Operator structs
     mapping(bytes32 operatorCommitment => Operator) public commitments;
 
     // Constants
@@ -79,7 +94,7 @@ contract Registry {
 
     function register(
         Registration[] calldata registrations,
-        bytes32 commitmentKey,
+        bytes32 proxyKey,
         address withdrawalAddress,
         uint16 unregistrationDelay,
         uint256 height
@@ -96,14 +111,14 @@ contract Registry {
         // merklize registrations
         bytes32 operatorCommitment = createCommitment(
             registrations,
-            commitmentKey,
+            proxyKey,
             height
         );
 
         // add operatorCommitment to mapping
         commitments[operatorCommitment] = Operator({
             withdrawalAddress: withdrawalAddress,
-            commitmentKey: commitmentKey,
+            proxyKey: proxyKey,
             collateral: uint56(msg.value), // todo save as GWEI
             registeredAt: uint32(block.number),
             unregistrationDelay: unregistrationDelay,
@@ -115,7 +130,7 @@ contract Registry {
 
     function createCommitment(
         Registration[] calldata registrations,
-        bytes32 commitmentKey,
+        bytes32 proxyKey,
         uint256 height
     ) internal pure returns (bytes32 operatorCommitment) {
         uint256 batchSize = 1 << height; // guaranteed pow of 2
@@ -143,7 +158,7 @@ contract Registry {
                 signature.y.c1.b
             ];
             bytes32 registrationCommitment = sha256(
-                abi.encodePacked(signatureBytes, commitmentKey)
+                abi.encodePacked(signatureBytes, proxyKey)
             );
 
             // Create leaf node by hashing pubkey and commitment
@@ -171,7 +186,7 @@ contract Registry {
         bytes32 operatorCommitment,
         BLS.G1Point calldata pubkey,
         BLS.G2Point calldata signature,
-        bytes32 commitmentKey,
+        bytes32 proxyKey,
         bytes32[] calldata proof,
         uint256 leafIndex
     ) external view {
@@ -202,7 +217,7 @@ contract Registry {
         bytes32 leaf = sha256(
             abi.encodePacked(
                 pubkeyBytes,
-                sha256(abi.encodePacked(signatureBytes, commitmentKey))
+                sha256(abi.encodePacked(signatureBytes, proxyKey))
             )
         );
 
