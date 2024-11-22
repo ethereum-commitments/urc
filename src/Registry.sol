@@ -19,7 +19,6 @@ contract Registry is IRegistry {
 
     function register(
         Registration[] calldata regs,
-        bytes32 proxyKey,
         address withdrawalAddress,
         uint16 unregistrationDelay,
         uint256 height
@@ -32,11 +31,10 @@ contract Registry is IRegistry {
             revert UnregistrationDelayTooShort();
         }
 
-        bytes32 registrationRoot = commitRegistrations(regs, proxyKey, height);
+        bytes32 registrationRoot = commitRegistrations(regs, height);
 
         registrations[registrationRoot] = Operator({
             withdrawalAddress: withdrawalAddress,
-            proxyKey: proxyKey,
             collateralGwei: uint56(msg.value / 1 gwei),
             registeredAt: uint32(block.number),
             unregistrationDelay: unregistrationDelay,
@@ -48,14 +46,10 @@ contract Registry is IRegistry {
 
     function commitRegistrations(
         Registration[] calldata regs,
-        bytes32 proxyKey,
         uint256 height
     ) internal pure returns (bytes32 operatorCommitment) {
         uint256 batchSize = 1 << height; // guaranteed pow of 2
-        require(
-            regs.length <= batchSize,
-            "Batch size must be at least as big"
-        );
+        require(regs.length <= batchSize, "Batch size must be at least as big");
 
         // Create leaves array with padding
         bytes32[] memory leaves = new bytes32[](batchSize);
@@ -75,9 +69,7 @@ contract Registry is IRegistry {
                 signature.y.c1.a,
                 signature.y.c1.b
             ];
-            bytes32 registrationCommitment = sha256(
-                abi.encodePacked(signatureBytes, proxyKey)
-            );
+            bytes32 registrationCommitment = sha256(abi.encodePacked(signatureBytes));
 
             // Create leaf node by hashing pubkey and commitment
             BLS.G1Point memory pubkey = regs[i].pubkey;
@@ -104,7 +96,6 @@ contract Registry is IRegistry {
         bytes32 operatorCommitment,
         BLS.G1Point calldata pubkey,
         BLS.G2Point calldata signature,
-        bytes32 proxyKey,
         bytes32[] calldata proof,
         uint256 leafIndex
     ) external view {
@@ -132,12 +123,7 @@ contract Registry is IRegistry {
         ];
 
         // reconstruct leaf
-        bytes32 leaf = sha256(
-            abi.encodePacked(
-                pubkeyBytes,
-                sha256(abi.encodePacked(signatureBytes, proxyKey))
-            )
-        );
+        bytes32 leaf = sha256(abi.encodePacked(pubkeyBytes, signatureBytes));
 
         // verify proof against operatorCommitment
         if (
