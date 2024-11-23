@@ -34,6 +34,10 @@ contract Registry is IRegistry {
 
         registrationRoot = _merkleizeRegistrations(regs, treeHeight);
 
+        if (registrations[registrationRoot].registeredAt != 0) {
+            revert OperatorAlreadyRegistered();
+        }
+
         registrations[registrationRoot] = Operator({
             withdrawalAddress: withdrawalAddress,
             collateralGwei: uint56(msg.value / 1 gwei),

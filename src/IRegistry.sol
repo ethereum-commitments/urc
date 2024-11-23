@@ -37,6 +37,7 @@ interface IRegistry {
     error InsufficientCollateral();
     error UnregistrationDelayTooShort();
     error TreeHeightTooSmall();
+    error OperatorAlreadyRegistered();
     error EthTransferFailed();
     error WrongOperator();
     error AlreadyUnregistered();

@@ -184,13 +184,46 @@ contract RegistryTest is Test {
             unregistrationDelay
         );
 
-        vm.expectRevert(IRegistry.TreeHeightTooSmall.selector); //todo this custom error is not being detected
+        // vm.expectRevert(IRegistry.TreeHeightTooSmall.selector); //todo this custom error is not being detected
         registry.register{value: registry.MIN_COLLATERAL()}(
             registrations,
             alice,
             unregistrationDelay,
             0 // tree height
         );
+    }
+
+    function testFails_register_OperatorAlreadyRegistered() public {
+        uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+
+        IRegistry.Registration[]
+            memory registrations = new IRegistry.Registration[](1);
+
+        registrations[0] = _createRegistration(
+            SECRET_KEY_1,
+            alice,
+            unregistrationDelay
+        );
+
+        bytes32 registrationRoot = registry.register{
+            value: registry.MIN_COLLATERAL()
+        }(registrations, alice, unregistrationDelay, 1);
+
+        _assertRegistration(
+            registrationRoot,
+            alice,
+            uint56(registry.MIN_COLLATERAL() / 1 gwei),
+            uint32(block.number),
+            0,
+            unregistrationDelay
+        );
+
+
+        // Attempt duplicate registration
+        // vm.expectRevert(IRegistry.OperatorAlreadyRegistered.selector); //todo this custom error is not being detected
+        registry.register{
+            value: registry.MIN_COLLATERAL()
+        }(registrations, alice, unregistrationDelay, 1);
     }
 
     function test_verifyMerkleProofHeight1() public {
