@@ -12,17 +12,17 @@ contract Registry is IRegistry {
     mapping(bytes32 registrationRoot => Operator) public registrations;
 
     // Constants
-    uint256 constant MIN_COLLATERAL = 0.1 ether;
-    uint256 constant TWO_EPOCHS = 64;
-    uint256 constant FRAUD_PROOF_WINDOW = 7200;
-    bytes constant DOMAIN_SEPARATOR = bytes("Universal-Registry-Contract");
+    uint256 public constant MIN_COLLATERAL = 0.1 ether;
+    uint256 public constant TWO_EPOCHS = 64;
+    uint256 public constant FRAUD_PROOF_WINDOW = 7200;
+    bytes public constant DOMAIN_SEPARATOR = bytes("Universal-Registry-Contract");
 
     function register(
         Registration[] calldata regs,
         address withdrawalAddress,
         uint16 unregistrationDelay,
-        uint256 height
-    ) external payable {
+        uint256 treeHeight
+    ) external payable returns (bytes32 registrationRoot) {
         if (msg.value < MIN_COLLATERAL) {
             revert InsufficientCollateral();
         }
@@ -31,7 +31,7 @@ contract Registry is IRegistry {
             revert UnregistrationDelayTooShort();
         }
 
-        bytes32 registrationRoot = commitRegistrations(regs, height);
+        registrationRoot = _merkleizeRegistrations(regs, treeHeight);
 
         registrations[registrationRoot] = Operator({
             withdrawalAddress: withdrawalAddress,
@@ -41,109 +41,96 @@ contract Registry is IRegistry {
             unregisteredAt: 0
         });
 
-        // emit events
+        emit OperatorRegistered(
+            registrationRoot,
+            msg.value,
+            unregistrationDelay
+        );
     }
 
-    function commitRegistrations(
+    function _merkleizeRegistrations(
         Registration[] calldata regs,
-        uint256 height
-    ) internal pure returns (bytes32 operatorCommitment) {
-        uint256 batchSize = 1 << height; // guaranteed pow of 2
-        require(regs.length <= batchSize, "Batch size must be at least as big");
-
-        // Create leaves array with padding
-        bytes32[] memory leaves = new bytes32[](batchSize);
-
-        // Create leaf nodes
-        for (uint256 i = 0; i < regs.length; i++) {
-            // Create registration commitment by hashing signature and metadata
-            // Flatten the signature
-            BLS.G2Point memory signature = regs[i].signature;
-            uint256[8] memory signatureBytes = [
-                signature.x.c0.a,
-                signature.x.c0.b,
-                signature.x.c1.a,
-                signature.x.c1.b,
-                signature.y.c0.a,
-                signature.y.c0.b,
-                signature.y.c1.a,
-                signature.y.c1.b
-            ];
-            bytes32 registrationCommitment = sha256(abi.encodePacked(signatureBytes));
-
-            // Create leaf node by hashing pubkey and commitment
-            BLS.G1Point memory pubkey = regs[i].pubkey;
-            leaves[i] = sha256(
-                abi.encodePacked(
-                    [pubkey.x.a, pubkey.x.b, pubkey.y.a, pubkey.y.b],
-                    registrationCommitment
-                )
-            );
-
-            // emit event
+        uint256 treeHeight
+    ) internal returns (bytes32 registrationRoot) {
+        // Check that the tree height is at least as big as the number of registrations
+        uint256 numLeaves = 1 << treeHeight;
+        if (regs.length > numLeaves) {
+            revert TreeHeightTooSmall();
         }
 
-        // Fill remaining leaves with empty hashes for padding
-        for (uint256 i = regs.length; i < batchSize; i++) {
+        // Create leaves array with padding
+        bytes32[] memory leaves = new bytes32[](numLeaves);
+
+        // Create leaf nodes by hashing pubkey and signature
+        for (uint256 i = 0; i < regs.length; i++) {
+            leaves[i] = sha256(abi.encode(regs[i]));
+            emit ValidatorRegistered(i, regs[i]);
+        }
+
+        // Fill remaining leaves with empty bytes for padding
+        for (uint256 i = regs.length; i < numLeaves; i++) {
             leaves[i] = bytes32(0);
         }
 
-        operatorCommitment = MerkleUtils.merkleize(leaves);
-        //emit final event
+        registrationRoot = MerkleUtils.merkleize(leaves);
     }
 
     function slashRegistration(
-        bytes32 operatorCommitment,
-        BLS.G1Point calldata pubkey,
-        BLS.G2Point calldata signature,
+        bytes32 registrationRoot,
+        Registration calldata reg,
         bytes32[] calldata proof,
         uint256 leafIndex
     ) external view {
-        Operator storage operator = registrations[operatorCommitment];
+        Operator storage operator = registrations[registrationRoot];
 
         if (block.number > operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowExpired();
         }
 
-        uint256[4] memory pubkeyBytes = [
-            pubkey.x.a,
-            pubkey.x.b,
-            pubkey.y.a,
-            pubkey.y.b
-        ];
-        uint256[8] memory signatureBytes = [
-            signature.x.c0.a,
-            signature.x.c0.b,
-            signature.x.c1.a,
-            signature.x.c1.b,
-            signature.y.c0.a,
-            signature.y.c0.b,
-            signature.y.c1.a,
-            signature.y.c1.b
-        ];
+        uint256 collateral = verifyMerkleProof(
+            registrationRoot,
+            reg,
+            proof,
+            leafIndex
+        );
 
-        // reconstruct leaf
-        bytes32 leaf = sha256(abi.encodePacked(pubkeyBytes, signatureBytes));
-
-        // verify proof against operatorCommitment
-        if (
-            MerkleUtils.verifyProof(proof, operatorCommitment, leaf, leafIndex)
-        ) {
-            revert FraudProofMerklePathInvalid();
+        if (collateral == 0) {
+            revert NotRegisteredValidator();
         }
 
-        // reconstruct message
-        // todo what exactly are they signing?
-        bytes memory message = bytes("");
+        // Reconstruct registration message
+        bytes memory message = abi.encodePacked(
+            operator.withdrawalAddress,
+            operator.unregistrationDelay
+        );
 
-        // verify signature
-        if (BLS.verify(message, signature, pubkey, DOMAIN_SEPARATOR)) {
+        // Verify registration signature
+        if (BLS.verify(message, reg.signature, reg.pubkey, DOMAIN_SEPARATOR)) {
             revert FraudProofChallengeInvalid();
+        }
+
+        // TODO: slash
+    }
+
+    function verifyMerkleProof(
+        bytes32 registrationRoot,
+        Registration calldata reg,
+        bytes32[] calldata proof,
+        uint256 leafIndex
+    ) public view returns (uint256 collateral) {
+        bytes32 leaf = sha256(abi.encode(reg));
+
+        if (MerkleUtils.verifyProof(proof, registrationRoot, leaf, leafIndex)) {
+            collateral =
+                registrations[registrationRoot].collateralGwei *
+                1 gwei;
+        } else {
+            collateral = 0;
         }
     }
 
-    function unregister(bytes32 operatorCommitment) external {
-        Operator storage operator = registrations[operatorCommitment];
+    function unregister(bytes32 registrationRoot) external {
+        Operator storage operator = registrations[registrationRoot];
 
         if (operator.withdrawalAddress != msg.sender) {
             revert WrongOperator();
@@ -157,11 +144,11 @@ contract Registry is IRegistry {
         // Set unregistration timestamp
         operator.unregisteredAt = uint32(block.number);
 
-        emit OperatorUnregistered(operatorCommitment, operator.unregisteredAt);
+        emit OperatorUnregistered(registrationRoot, operator.unregisteredAt);
     }
 
-    function claimCollateral(bytes32 operatorCommitment) external {
-        Operator storage operator = registrations[operatorCommitment];
+    function claimCollateral(bytes32 registrationRoot) external {
+        Operator storage operator = registrations[registrationRoot];
 
         // Check that they've unregistered
         if (operator.unregisteredAt == 0) {
@@ -189,9 +176,9 @@ contract Registry is IRegistry {
         }("");
         require(success, "Transfer failed");
 
-        emit OperatorDeleted(operatorCommitment, amountToReturn);
+        emit OperatorDeleted(registrationRoot, amountToReturn);
 
         // Clear operator info
-        delete registrations[operatorCommitment];
+        delete registrations[registrationRoot];
     }
 }

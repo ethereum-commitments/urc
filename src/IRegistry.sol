@@ -5,8 +5,9 @@ import {BLS} from "./lib/BLS.sol";
 
 interface IRegistry {
     // Structs
+
     struct Registration {
-        /// Compressed validator BLS public key
+        /// Validator BLS public key
         BLS.G1Point pubkey;
         /// Validator BLS signature
         BLS.G2Point signature;
@@ -26,38 +27,40 @@ interface IRegistry {
     }
 
     // Events
-    event OperatorRegistered(bytes32 operatorCommitment, uint32 registeredAt);
-    event OperatorUnregistered(bytes32 operatorCommitment, uint32 unregisteredAt);
-    event OperatorDeleted(bytes32 operatorCommitment, uint72 amountToReturn);
+    event OperatorRegistered(bytes32 registrationRoot, uint256 collateral, uint16 unregistrationDelay);
+    event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
+    event OperatorDeleted(bytes32 registrationRoot, uint72 amountToReturn);
+    event ValidatorRegistered(uint256 leafIndex, Registration reg);
 
     // Errors
     error InsufficientCollateral();
+    error UnregistrationDelayTooShort();
+    error TreeHeightTooSmall();
     error WrongOperator();
     error AlreadyUnregistered();
     error NotUnregistered();
     error UnregistrationDelayNotMet();
     error NoCollateralToClaim();
     error FraudProofWindowExpired();
+    error NotRegisteredValidator();
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
-    error UnregistrationDelayTooShort();
 
     function register(
         Registration[] calldata registrations,
         address withdrawalAddress,
         uint16 unregistrationDelay,
-        uint256 height
-    ) external payable;
+        uint256 treeHeight
+    ) external payable returns (bytes32 registrationRoot);
 
     function slashRegistration(
-        bytes32 operatorCommitment,
-        BLS.G1Point calldata pubkey,
-        BLS.G2Point calldata signature,
+        bytes32 registrationRoot,
+        Registration calldata reg,
         bytes32[] calldata proof,
         uint256 leafIndex
     ) external view;
 
-    function unregister(bytes32 operatorCommitment) external;
+    function unregister(bytes32 registrationRoot) external;
 
-    function claimCollateral(bytes32 operatorCommitment) external;
+    function claimCollateral(bytes32 registrationRoot) external;
 }
