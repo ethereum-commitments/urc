@@ -29,13 +29,15 @@ interface IRegistry {
     // Events
     event OperatorRegistered(bytes32 registrationRoot, uint256 collateral, uint16 unregistrationDelay);
     event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
-    event OperatorDeleted(bytes32 registrationRoot, uint72 amountToReturn);
+    event RegistrationSlashed(bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg);
+    event OperatorDeleted(bytes32 registrationRoot);
     event ValidatorRegistered(uint256 leafIndex, Registration reg);
 
     // Errors
     error InsufficientCollateral();
     error UnregistrationDelayTooShort();
     error TreeHeightTooSmall();
+    error EthTransferFailed();
     error WrongOperator();
     error AlreadyUnregistered();
     error NotUnregistered();
@@ -58,7 +60,7 @@ interface IRegistry {
         Registration calldata reg,
         bytes32[] calldata proof,
         uint256 leafIndex
-    ) external view;
+    ) external returns(uint256 collateral);
 
     function unregister(bytes32 registrationRoot) external;
 

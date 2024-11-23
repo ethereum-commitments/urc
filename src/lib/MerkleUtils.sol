@@ -42,6 +42,10 @@ library MerkleUtils {
         bytes32 h = leaf;
         uint256 index = leafIndex;
 
+        if (proof.length == 1) {
+            return h == root;
+        }
+
         for (uint256 i = 0; i < proof.length; i++) {
             bytes32 proofElement = proof[i];
 
