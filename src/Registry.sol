@@ -58,7 +58,7 @@ contract Registry is IRegistry {
         uint256 treeHeight
     ) internal returns (bytes32 registrationRoot) {
         // Check that the tree height is at least as big as the number of registrations
-        uint256 numLeaves = 1 << treeHeight;
+        uint256 numLeaves = 1 << (treeHeight - 1);
         if (regs.length > numLeaves) {
             revert TreeHeightTooSmall();
         }

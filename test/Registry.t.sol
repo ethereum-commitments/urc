@@ -94,6 +94,7 @@ contract RegistryTest is Test {
 
     function test_register() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -106,7 +107,7 @@ contract RegistryTest is Test {
 
         bytes32 registrationRoot = registry.register{
             value: registry.MIN_COLLATERAL()
-        }(registrations, alice, unregistrationDelay, 1);
+        }(registrations, alice, unregistrationDelay, treeHight);
 
         _assertRegistration(
             registrationRoot,
@@ -120,6 +121,7 @@ contract RegistryTest is Test {
 
     function test_register_insufficientCollateral() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -141,12 +143,13 @@ contract RegistryTest is Test {
             registrations,
             alice,
             unregistrationDelay,
-            1
+            treeHight
         );
     }
 
     function testFails_register_unregistrationDelayTooShort() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS() - 1);
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -162,12 +165,13 @@ contract RegistryTest is Test {
             registrations,
             alice,
             unregistrationDelay,
-            1
+            treeHight
         );
     }
 
     function testFails_register_treeHeightTooSmall() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](2);
@@ -189,12 +193,13 @@ contract RegistryTest is Test {
             registrations,
             alice,
             unregistrationDelay,
-            0 // tree height
+            treeHight
         );
     }
 
     function testFails_register_OperatorAlreadyRegistered() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -207,7 +212,7 @@ contract RegistryTest is Test {
 
         bytes32 registrationRoot = registry.register{
             value: registry.MIN_COLLATERAL()
-        }(registrations, alice, unregistrationDelay, 1);
+        }(registrations, alice, unregistrationDelay, treeHight);
 
         _assertRegistration(
             registrationRoot,
@@ -218,17 +223,20 @@ contract RegistryTest is Test {
             unregistrationDelay
         );
 
-
         // Attempt duplicate registration
         // vm.expectRevert(IRegistry.OperatorAlreadyRegistered.selector); //todo this custom error is not being detected
-        registry.register{
-            value: registry.MIN_COLLATERAL()
-        }(registrations, alice, unregistrationDelay, 1);
+        registry.register{value: registry.MIN_COLLATERAL()}(
+            registrations,
+            alice,
+            unregistrationDelay,
+            treeHight
+        );
     }
 
     function test_verifyMerkleProofHeight1() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
         uint256 collateral = registry.MIN_COLLATERAL();
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -243,7 +251,7 @@ contract RegistryTest is Test {
             registrations,
             alice,
             unregistrationDelay,
-            0
+            treeHight
         );
 
         _assertRegistration(
@@ -273,6 +281,7 @@ contract RegistryTest is Test {
     function test_slashRegistrationHeight1_DifferentUnregDelay() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
         uint256 collateral = registry.MIN_COLLATERAL();
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -287,7 +296,7 @@ contract RegistryTest is Test {
             registrations,
             alice,
             unregistrationDelay + 1, // submit a different delay to URC
-            0
+            treeHight
         );
 
         _assertRegistration(
@@ -339,19 +348,13 @@ contract RegistryTest is Test {
         );
 
         // ensure operator was deleted
-        _assertRegistration(
-            registrationRoot,
-            address(0),
-            0, 
-            0,
-            0,
-            0
-        );
+        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
     }
 
     function test_slashRegistrationHeight1_DifferentWithdrawalAddress() public {
         uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
         uint256 collateral = registry.MIN_COLLATERAL();
+        uint256 treeHight = 1;
 
         IRegistry.Registration[]
             memory registrations = new IRegistry.Registration[](1);
@@ -359,14 +362,14 @@ contract RegistryTest is Test {
         registrations[0] = _createRegistration(
             SECRET_KEY_1,
             alice, // withdrawal that is signed by validator key
-            unregistrationDelay 
+            unregistrationDelay
         );
 
         bytes32 registrationRoot = registry.register{value: collateral}(
             registrations,
             bob, // Bob tries to frontrun alice
             unregistrationDelay,
-            0
+            treeHight
         );
 
         _assertRegistration(
@@ -419,13 +422,6 @@ contract RegistryTest is Test {
         );
 
         // ensure operator was deleted
-        _assertRegistration(
-            registrationRoot,
-            address(0),
-            0, 
-            0,
-            0,
-            0
-        );
+        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
     }
 }
