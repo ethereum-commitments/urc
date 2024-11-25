@@ -263,8 +263,8 @@ contract RegistryTest is Test {
             unregistrationDelay
         );
 
-        bytes32[] memory proof = new bytes32[](1);
-        proof[0] = registrationRoot;
+        // no proof is needed for height 1
+        bytes32[] memory proof = new bytes32[](0);
         uint256 gotCollateral = registry.verifyMerkleProof(
             registrationRoot,
             registrations[0],
@@ -308,8 +308,8 @@ contract RegistryTest is Test {
             unregistrationDelay + 1 // confirm what was submitted is saved
         );
 
-        bytes32[] memory proof = new bytes32[](1);
-        proof[0] = registrationRoot;
+        // no proof is needed for height 1
+        bytes32[] memory proof = new bytes32[](0);
 
         uint256 bobBalanceBefore = bob.balance;
         uint256 aliceBalanceBefore = alice.balance;
@@ -381,8 +381,8 @@ contract RegistryTest is Test {
             unregistrationDelay
         );
 
-        bytes32[] memory proof = new bytes32[](1);
-        proof[0] = registrationRoot;
+        // no proof is needed for height 1
+        bytes32[] memory proof = new bytes32[](0);
 
         uint256 bobBalanceBefore = bob.balance;
         uint256 aliceBalanceBefore = alice.balance;
@@ -423,5 +423,71 @@ contract RegistryTest is Test {
 
         // ensure operator was deleted
         _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
+    }
+
+    function test_verifyMerkleProofHeight2() public {
+        uint16 unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        uint256 collateral = registry.MIN_COLLATERAL();
+        uint256 treeHight = 2;
+
+        IRegistry.Registration[]
+            memory registrations = new IRegistry.Registration[](2);
+
+        registrations[0] = _createRegistration(
+            SECRET_KEY_1,
+            alice,
+            unregistrationDelay
+        );
+
+        registrations[1] = _createRegistration(
+            SECRET_KEY_2,
+            alice,
+            unregistrationDelay
+        );
+
+        bytes32 registrationRoot = registry.register{value: collateral}(
+            registrations,
+            alice,
+            unregistrationDelay,
+            treeHight
+        );
+
+        _assertRegistration(
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            0,
+            unregistrationDelay
+        );
+
+        // Test first proof path
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = sha256(abi.encode(registrations[1]));
+        uint256 gotCollateral = registry.verifyMerkleProof(
+            registrationRoot,
+            registrations[0],
+            proof,
+            0 // leafIndex
+        );
+        assertEq(
+            gotCollateral,
+            uint56(collateral / 1 gwei),
+            "Wrong collateral amount"
+        );
+
+        // Test second proof path
+        proof[0] = sha256(abi.encode(registrations[0]));
+        gotCollateral = registry.verifyMerkleProof(
+            registrationRoot,
+            registrations[1],
+            proof,
+            1 // leafIndex
+        );
+        assertEq(
+            gotCollateral,
+            uint56(collateral / 1 gwei),
+            "Wrong collateral amount"
+        );
     }
 }
