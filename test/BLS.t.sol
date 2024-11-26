@@ -2,23 +2,15 @@
 pragma solidity >=0.8.0 <0.9.0;
 // Credit: https://github.com/paradigmxyz/forge-alphanet/blob/main/src/sign/BLS.sol
 
-import {Test, console} from "forge-std/Test.sol";
-import {BLS} from "../src/lib/BLS.sol";
+import { Test, console } from "forge-std/Test.sol";
+import { BLS } from "../src/lib/BLS.sol";
 
 /// @notice A simple test demonstrating BLS signature verification.
 contract BLSTest is Test {
     /// @dev Demonstrates the signing and verification of a message.
-    function testSignAndVerify(
-        uint256 privateKey,
-        bytes memory message,
-        bytes memory domainSeparator
-    ) public view {
+    function testSignAndVerify(uint256 privateKey, bytes memory message, bytes memory domainSeparator) public view {
         BLS.G1Point memory publicKey = BLS.toPublicKey(privateKey);
-        BLS.G2Point memory signature = BLS.sign(
-            message,
-            privateKey,
-            domainSeparator
-        );
+        BLS.G2Point memory signature = BLS.sign(message, privateKey, domainSeparator);
         assert(BLS.verify(message, signature, publicKey, domainSeparator));
     }
 
@@ -34,16 +26,8 @@ contract BLSTest is Test {
         BLS.G1Point memory pk2 = BLS.toPublicKey(privateKey2);
 
         // signatures
-        BLS.G2Point memory sig1 = BLS.sign(
-            message,
-            privateKey1,
-            domainSeparator
-        );
-        BLS.G2Point memory sig2 = BLS.sign(
-            message,
-            privateKey2,
-            domainSeparator
-        );
+        BLS.G2Point memory sig1 = BLS.sign(message, privateKey1, domainSeparator);
+        BLS.G2Point memory sig2 = BLS.sign(message, privateKey2, domainSeparator);
 
         // aggregated signature
         BLS.G2Point memory sig = BLS.G2Add(sig1, sig2);
@@ -62,35 +46,17 @@ contract BLSTest is Test {
         assert(BLS.Pairing(g1Points, g2Points));
     }
 
-    function testToMessagePoint(
-        bytes memory message,
-        bytes memory domainSeparator
-    ) public view {
-        BLS.G2Point memory messagePoint = BLS.toMessagePoint(
-            message,
-            domainSeparator
-        );
+    function testToMessagePoint(bytes memory message, bytes memory domainSeparator) public view {
+        BLS.G2Point memory messagePoint = BLS.toMessagePoint(message, domainSeparator);
         BLS.G2Point memory messagePointExpected = BLS.MapFp2ToG2(
-            BLS.Fp2(
-                BLS.Fp(0, 0),
-                BLS.Fp(
-                    0,
-                    uint256(
-                        keccak256(abi.encodePacked(domainSeparator, message))
-                    )
-                )
-            )
+            BLS.Fp2(BLS.Fp(0, 0), BLS.Fp(0, uint256(keccak256(abi.encodePacked(domainSeparator, message)))))
         );
 
         assert(
-            messagePoint.x.c0.a == messagePointExpected.x.c0.a &&
-                messagePoint.x.c0.b == messagePointExpected.x.c0.b &&
-                messagePoint.x.c1.a == messagePointExpected.x.c1.a &&
-                messagePoint.x.c1.b == messagePointExpected.x.c1.b &&
-                messagePoint.y.c0.a == messagePointExpected.y.c0.a &&
-                messagePoint.y.c0.b == messagePointExpected.y.c0.b &&
-                messagePoint.y.c1.a == messagePointExpected.y.c1.a &&
-                messagePoint.y.c1.b == messagePointExpected.y.c1.b
+            messagePoint.x.c0.a == messagePointExpected.x.c0.a && messagePoint.x.c0.b == messagePointExpected.x.c0.b
+                && messagePoint.x.c1.a == messagePointExpected.x.c1.a && messagePoint.x.c1.b == messagePointExpected.x.c1.b
+                && messagePoint.y.c0.a == messagePointExpected.y.c0.a && messagePoint.y.c0.b == messagePointExpected.y.c0.b
+                && messagePoint.y.c1.a == messagePointExpected.y.c1.a && messagePoint.y.c1.b == messagePointExpected.y.c1.b
         );
     }
 
@@ -111,10 +77,8 @@ contract BLSTest is Test {
 
         BLS.G1Point memory publicKey = BLS.toPublicKey(privateKey);
         assert(
-            publicKey.x.a == expected.x.a &&
-                publicKey.x.b == expected.x.b &&
-                publicKey.y.a == expected.y.a &&
-                publicKey.y.b == expected.y.b
+            publicKey.x.a == expected.x.a && publicKey.x.b == expected.x.b && publicKey.y.a == expected.y.a
+                && publicKey.y.b == expected.y.b
         );
     }
 }

@@ -46,14 +46,9 @@ library BLS {
     /// @param a First G1 point
     /// @param b Second G1 point
     /// @return result Resulted G1 point
-    function G1Add(
-        G1Point memory a,
-        G1Point memory b
-    ) internal view returns (G1Point memory result) {
+    function G1Add(G1Point memory a, G1Point memory b) internal view returns (G1Point memory result) {
         // G1ADD address is 0x0b
-        (bool success, bytes memory output) = address(0x0b).staticcall(
-            abi.encode(a, b)
-        );
+        (bool success, bytes memory output) = address(0x0b).staticcall(abi.encode(a, b));
         require(success, "G1ADD failed");
         return abi.decode(output, (G1Point));
     }
@@ -62,14 +57,9 @@ library BLS {
     /// @param point G1 point
     /// @param scalar Scalar to multiply the point by
     /// @return result Resulted G1 point
-    function G1Mul(
-        G1Point memory point,
-        uint256 scalar
-    ) internal view returns (G1Point memory result) {
+    function G1Mul(G1Point memory point, uint256 scalar) internal view returns (G1Point memory result) {
         // G1MUL address is 0x0c
-        (bool success, bytes memory output) = address(0x0c).staticcall(
-            abi.encode(point, scalar)
-        );
+        (bool success, bytes memory output) = address(0x0c).staticcall(abi.encode(point, scalar));
         require(success, "G1MUL failed");
         return abi.decode(output, (G1Point));
     }
@@ -78,10 +68,7 @@ library BLS {
     /// @param points Array of G1 points
     /// @param scalars Array of scalars to multiply the points by
     /// @return result Resulted G1 point
-    function G1MSM(
-        G1Point[] memory points,
-        uint256[] memory scalars
-    ) internal view returns (G1Point memory result) {
+    function G1MSM(G1Point[] memory points, uint256[] memory scalars) internal view returns (G1Point memory result) {
         bytes memory input;
 
         for (uint256 i = 0; i < points.length; i++) {
@@ -98,14 +85,9 @@ library BLS {
     /// @param a First G2 point
     /// @param b Second G2 point
     /// @return result Resulted G2 point
-    function G2Add(
-        G2Point memory a,
-        G2Point memory b
-    ) internal view returns (G2Point memory result) {
+    function G2Add(G2Point memory a, G2Point memory b) internal view returns (G2Point memory result) {
         // G2ADD address is 0x0e
-        (bool success, bytes memory output) = address(0x0e).staticcall(
-            abi.encode(a, b)
-        );
+        (bool success, bytes memory output) = address(0x0e).staticcall(abi.encode(a, b));
         require(success, "G2ADD failed");
         return abi.decode(output, (G2Point));
     }
@@ -114,14 +96,9 @@ library BLS {
     /// @param point G2 point
     /// @param scalar Scalar to multiply the point by
     /// @return result Resulted G2 point
-    function G2Mul(
-        G2Point memory point,
-        uint256 scalar
-    ) internal view returns (G2Point memory result) {
+    function G2Mul(G2Point memory point, uint256 scalar) internal view returns (G2Point memory result) {
         // G2MUL address is 0x0f
-        (bool success, bytes memory output) = address(0x0f).staticcall(
-            abi.encode(point, scalar)
-        );
+        (bool success, bytes memory output) = address(0x0f).staticcall(abi.encode(point, scalar));
         require(success, "G2MUL failed");
         return abi.decode(output, (G2Point));
     }
@@ -130,10 +107,7 @@ library BLS {
     /// @param points Array of G2 points
     /// @param scalars Array of scalars to multiply the points by
     /// @return result Resulted G2 point
-    function G2MSM(
-        G2Point[] memory points,
-        uint256[] memory scalars
-    ) internal view returns (G2Point memory result) {
+    function G2MSM(G2Point[] memory points, uint256[] memory scalars) internal view returns (G2Point memory result) {
         bytes memory input;
 
         for (uint256 i = 0; i < points.length; i++) {
@@ -150,10 +124,7 @@ library BLS {
     /// @param g1Points Array of G1 points
     /// @param g2Points Array of G2 points
     /// @return result Returns whether pairing result is equal to the multiplicative identity (1).
-    function Pairing(
-        G1Point[] memory g1Points,
-        G2Point[] memory g2Points
-    ) internal view returns (bool result) {
+    function Pairing(G1Point[] memory g1Points, G2Point[] memory g2Points) internal view returns (bool result) {
         bytes memory input;
         for (uint256 i = 0; i < g1Points.length; i++) {
             input = bytes.concat(input, abi.encode(g1Points[i], g2Points[i]));
@@ -168,13 +139,9 @@ library BLS {
     /// @notice MAP_FP_TO_G1 operation
     /// @param element Fp element
     /// @return result Resulted G1 point
-    function MapFpToG1(
-        Fp memory element
-    ) internal view returns (G1Point memory result) {
+    function MapFpToG1(Fp memory element) internal view returns (G1Point memory result) {
         // MAP_FP_TO_G1 address is 0x12
-        (bool success, bytes memory output) = address(0x12).staticcall(
-            abi.encode(element)
-        );
+        (bool success, bytes memory output) = address(0x12).staticcall(abi.encode(element));
         require(success, "MAP_FP_TO_G1 failed");
         return abi.decode(output, (G1Point));
     }
@@ -182,13 +149,9 @@ library BLS {
     /// @notice MAP_FP2_TO_G2 operation
     /// @param element Fp2 element
     /// @return result Resulted G2 point
-    function MapFp2ToG2(
-        Fp2 memory element
-    ) internal view returns (G2Point memory result) {
+    function MapFp2ToG2(Fp2 memory element) internal view returns (G2Point memory result) {
         // MAP_FP2_TO_G2 address is 0x13
-        (bool success, bytes memory output) = address(0x13).staticcall(
-            abi.encode(element)
-        );
+        (bool success, bytes memory output) = address(0x13).staticcall(abi.encode(element));
         require(success, "MAP_FP2_TO_G2 failed");
         return abi.decode(output, (G2Point));
     }
@@ -197,14 +160,9 @@ library BLS {
     /// @dev Uses the eip-2537 precompiles
     /// @param message Arbitrarylength byte string to be hashed
     /// @return A point in G2
-    function hashToCurveG2(
-        bytes memory message
-    ) internal view returns (G2Point memory) {
+    function hashToCurveG2(bytes memory message) internal view returns (G2Point memory) {
         // 1. u = hash_to_field(msg, 2)
-        Fp2[2] memory u = hashToFieldFp2(
-            message,
-            bytes("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_")
-        );
+        Fp2[2] memory u = hashToFieldFp2(message, bytes("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_"));
         // 2. Q0 = map_to_curve(u[0])
         G2Point memory q0 = MapFp2ToG2(u[0]);
         // 3. Q1 = map_to_curve(u[1])
@@ -218,19 +176,12 @@ library BLS {
     /// @param message Arbitrarylength byte string to be hashed
     /// @param dst The domain separation tag
     /// @return Two field points
-    function hashToFieldFp2(
-        bytes memory message,
-        bytes memory dst
-    ) private view returns (Fp2[2] memory) {
+    function hashToFieldFp2(bytes memory message, bytes memory dst) private view returns (Fp2[2] memory) {
         // 1. len_in_bytes = count * m * L
         // so always 2 * 2 * 64 = 256
         uint16 lenInBytes = 256;
         // 2. uniform_bytes = expand_message(msg, DST, len_in_bytes)
-        bytes32[] memory pseudoRandomBytes = expandMsgXmd(
-            message,
-            dst,
-            lenInBytes
-        );
+        bytes32[] memory pseudoRandomBytes = expandMsgXmd(message, dst, lenInBytes);
         Fp2[2] memory u;
         // No loop here saves 800 gas hardcoding offset an additional 300
         // 3. for i in (0, ..., count - 1):
@@ -257,11 +208,11 @@ library BLS {
     /// @param dst The domain separation tag of at most 255 bytes
     /// @param lenInBytes The length of the requested output in bytes
     /// @return A field point
-    function expandMsgXmd(
-        bytes memory message,
-        bytes memory dst,
-        uint16 lenInBytes
-    ) private pure returns (bytes32[] memory) {
+    function expandMsgXmd(bytes memory message, bytes memory dst, uint16 lenInBytes)
+        private
+        pure
+        returns (bytes32[] memory)
+    {
         // 1.  ell = ceil(len_in_bytes / b_in_bytes)
         // b_in_bytes seems to be 32 for sha256
         // ceil the division
@@ -285,13 +236,7 @@ library BLS {
         bytes2 libStr = bytes2(lenInBytes);
 
         // 6.  msg_prime = Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime
-        bytes memory msgPrime = bytes.concat(
-            zPad,
-            message,
-            libStr,
-            hex"00",
-            dstPrime
-        );
+        bytes memory msgPrime = bytes.concat(zPad, message, libStr, hex"00", dstPrime);
 
         // 7.  b_0 = H(msg_prime)
         bytes32 b_0 = sha256(msgPrime);
@@ -315,10 +260,7 @@ library BLS {
 
     // passing two bytes32 instead of bytes memory saves approx 700 gas per call
     // Computes the mod against the bls12-381 field modulus
-    function _modfield(
-        bytes32 _b1,
-        bytes32 _b2
-    ) private view returns (Fp memory r) {
+    function _modfield(bytes32 _b1, bytes32 _b2) private view returns (Fp memory r) {
         (bool success, bytes memory output) = address(0x5).staticcall(
             abi.encode(
                 // arg[0] = base.length
@@ -349,32 +291,30 @@ library BLS {
 
     // Function to return G1 generator point
     function G1_GENERATOR() internal pure returns (G1Point memory) {
-        return
-            G1Point(
-                Fp(
-                    31827880280837800241567138048534752271,
-                    88385725958748408079899006800036250932223001591707578097800747617502997169851
-                ),
-                Fp(
-                    11568204302792691131076548377920244452,
-                    114417265404584670498511149331300188430316142484413708742216858159411894806497
-                )
-            );
+        return G1Point(
+            Fp(
+                31827880280837800241567138048534752271,
+                88385725958748408079899006800036250932223001591707578097800747617502997169851
+            ),
+            Fp(
+                11568204302792691131076548377920244452,
+                114417265404584670498511149331300188430316142484413708742216858159411894806497
+            )
+        );
     }
 
     // Function to return negated G1 generator point
     function NEGATED_G1_GENERATOR() internal pure returns (G1Point memory) {
-        return
-            G1Point(
-                Fp(
-                    31827880280837800241567138048534752271,
-                    88385725958748408079899006800036250932223001591707578097800747617502997169851
-                ),
-                Fp(
-                    22997279242622214937712647648895181298,
-                    46816884707101390882112958134453447585552332943769894357249934112654335001290
-                )
-            );
+        return G1Point(
+            Fp(
+                31827880280837800241567138048534752271,
+                88385725958748408079899006800036250932223001591707578097800747617502997169851
+            ),
+            Fp(
+                22997279242622214937712647648895181298,
+                46816884707101390882112958134453447585552332943769894357249934112654335001290
+            )
+        );
     }
 
     /// @dev Referenced from https://eips.ethereum.org/EIPS/eip-2537#curve-parameters
@@ -388,9 +328,7 @@ library BLS {
     /// @notice Converts a private key to a public key by multiplying the generator point with the private key
     /// @param privateKey The private key to convert
     /// @return The public key
-    function toPublicKey(
-        uint256 privateKey
-    ) internal view returns (G1Point memory) {
+    function toPublicKey(uint256 privateKey) internal view returns (G1Point memory) {
         return G1Mul(G1_GENERATOR(), privateKey);
     }
 
@@ -398,24 +336,12 @@ library BLS {
     /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
     /// @param domainSeparator The domain separation tag
     /// @return A point in G2
-    function toMessagePoint(
-        bytes memory message,
-        bytes memory domainSeparator
-    ) internal view returns (G2Point memory) {
-        return
-            MapFp2ToG2(
-                Fp2(
-                    Fp(0, 0),
-                    Fp(
-                        0,
-                        uint256(
-                            keccak256(
-                                abi.encodePacked(domainSeparator, message)
-                            )
-                        )
-                    )
-                )
-            );
+    function toMessagePoint(bytes memory message, bytes memory domainSeparator)
+        internal
+        view
+        returns (G2Point memory)
+    {
+        return MapFp2ToG2(Fp2(Fp(0, 0), Fp(0, uint256(keccak256(abi.encodePacked(domainSeparator, message))))));
     }
 
     /// @notice Signs a message
@@ -423,11 +349,11 @@ library BLS {
     /// @param privateKey The private key to sign with
     /// @param domainSeparator The domain separation tag
     /// @return A signature in G2
-    function sign(
-        bytes memory message,
-        uint256 privateKey,
-        bytes memory domainSeparator
-    ) internal view returns (G2Point memory) {
+    function sign(bytes memory message, uint256 privateKey, bytes memory domainSeparator)
+        internal
+        view
+        returns (G2Point memory)
+    {
         return G2Mul(toMessagePoint(message, domainSeparator), privateKey);
     }
 
@@ -444,10 +370,7 @@ library BLS {
         bytes memory domainSeparator
     ) public view returns (bool) {
         // Hash the message bytes into a G2 point
-        BLS.G2Point memory messagePoint = toMessagePoint(
-            message,
-            domainSeparator
-        );
+        BLS.G2Point memory messagePoint = toMessagePoint(message, domainSeparator);
 
         // Invoke the pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
