@@ -158,7 +158,7 @@ contract Registry is IRegistry {
             revert NoCollateralToClaim();
         }
 
-        uint72 amountToReturn = operator.collateralGwei;
+        uint256 amountToReturn = uint256(operator.collateralGwei) * 1 gwei;
 
         // TODO safe transfer for rentrancy
         (bool success,) = operator.withdrawalAddress.call{ value: amountToReturn }("");
