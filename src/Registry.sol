@@ -13,7 +13,7 @@ contract Registry is IRegistry {
 
     // Constants
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
-    uint256 public constant TWO_EPOCHS = 64;
+    uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200;
     bytes public constant DOMAIN_SEPARATOR = bytes("Universal-Registry-Contract");
 
@@ -26,7 +26,7 @@ contract Registry is IRegistry {
             revert InsufficientCollateral();
         }
 
-        if (unregistrationDelay < TWO_EPOCHS) {
+        if (unregistrationDelay < MIN_UNREGISTRATION_DELAY) {
             revert UnregistrationDelayTooShort();
         }
 

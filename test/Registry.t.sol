@@ -79,7 +79,7 @@ contract RegistryTest is Test {
 
     // New helper functions
     function _setupBasicRegistrationParams() internal view returns (uint16 unregistrationDelay, uint256 collateral) {
-        unregistrationDelay = uint16(registry.TWO_EPOCHS());
+        unregistrationDelay = uint16(registry.MIN_UNREGISTRATION_DELAY());
         collateral = registry.MIN_COLLATERAL();
     }
 
