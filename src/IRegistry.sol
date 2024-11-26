@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import {BLS} from "./lib/BLS.sol";
+import { BLS } from "./lib/BLS.sol";
 
 interface IRegistry {
     // Structs
@@ -29,15 +29,17 @@ interface IRegistry {
     // Events
     event OperatorRegistered(bytes32 registrationRoot, uint256 collateral, uint16 unregistrationDelay);
     event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
-    event RegistrationSlashed(bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg);
+    event RegistrationSlashed(
+        bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg
+    );
     event OperatorDeleted(bytes32 registrationRoot);
-    event ValidatorRegistered(uint256 leafIndex, Registration reg);
+    event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
 
     // Errors
     error InsufficientCollateral();
     error UnregistrationDelayTooShort();
-    error TreeHeightTooSmall();
     error OperatorAlreadyRegistered();
+    error InvalidRegistrationRoot();
     error EthTransferFailed();
     error WrongOperator();
     error AlreadyUnregistered();
@@ -49,19 +51,17 @@ interface IRegistry {
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
 
-    function register(
-        Registration[] calldata registrations,
-        address withdrawalAddress,
-        uint16 unregistrationDelay,
-        uint256 treeHeight
-    ) external payable returns (bytes32 registrationRoot);
+    function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
+        external
+        payable
+        returns (bytes32 registrationRoot);
 
     function slashRegistration(
         bytes32 registrationRoot,
         Registration calldata reg,
         bytes32[] calldata proof,
         uint256 leafIndex
-    ) external returns(uint256 collateral);
+    ) external returns (uint256 collateral);
 
     function unregister(bytes32 registrationRoot) external;
 

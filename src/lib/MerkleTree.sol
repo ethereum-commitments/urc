@@ -15,9 +15,8 @@ library MerkleTree {
      * @param leaves Array of leaf values
      * @return bytes32 Root hash of the Merkle tree
      */
-    function generateTree(
-        bytes32[] memory leaves
-    ) internal pure returns (bytes32) {
+
+    function generateTree(bytes32[] memory leaves) internal pure returns (bytes32) {
         if (leaves.length == 0) revert EmptyLeaves();
         if (leaves.length == 1) return leaves[0];
         if (leaves.length > 256) revert LeavesTooLarge();
@@ -52,10 +51,7 @@ library MerkleTree {
      * @param index Index of the leaf to generate proof for
      * @return bytes32[] Array of proof elements
      */
-    function generateProof(
-        bytes32[] memory leaves,
-        uint256 index
-    ) internal pure returns (bytes32[] memory) {
+    function generateProof(bytes32[] memory leaves, uint256 index) internal pure returns (bytes32[] memory) {
         if (index >= leaves.length) revert IndexOutOfBounds();
         if (leaves.length <= 1) return new bytes32[](0);
 
@@ -109,12 +105,38 @@ library MerkleTree {
      * @param proof Array of proof elements
      * @return bool True if the proof is valid, false otherwise
      */
-    function verifyProof(
-        bytes32 root,
-        bytes32 leaf,
-        uint256 index,
-        bytes32[] memory proof
-    ) internal pure returns (bool) {
+    function verifyProof(bytes32 root, bytes32 leaf, uint256 index, bytes32[] memory proof)
+        internal
+        pure
+        returns (bool)
+    {
+        bytes32 computedHash = leaf;
+
+        for (uint256 i = 0; i < proof.length; i++) {
+            if (index % 2 == 0) {
+                computedHash = _efficientKeccak256(computedHash, proof[i]);
+            } else {
+                computedHash = _efficientKeccak256(proof[i], computedHash);
+            }
+            index = index / 2;
+        }
+
+        return computedHash == root;
+    }
+
+    /**
+     * @dev Verifies a Merkle proof for a leaf
+     * @param root Root hash of the Merkle tree
+     * @param leaf Leaf value being proved
+     * @param index Index of the leaf in the tree
+     * @param proof Array of proof elements
+     * @return bool True if the proof is valid, false otherwise
+     */
+    function verifyProofCalldata(bytes32 root, bytes32 leaf, uint256 index, bytes32[] calldata proof)
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 computedHash = leaf;
 
         for (uint256 i = 0; i < proof.length; i++) {
@@ -133,10 +155,7 @@ library MerkleTree {
      * @dev Implementation of keccak256(abi.encode(a, b)) that doesn't allocate or expand memory.
      * @dev From https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/Hashes.sol
      */
-    function _efficientKeccak256(
-        bytes32 a,
-        bytes32 b
-    ) public pure returns (bytes32 value) {
+    function _efficientKeccak256(bytes32 a, bytes32 b) public pure returns (bytes32 value) {
         assembly ("memory-safe") {
             mstore(0x00, a)
             mstore(0x20, b)
