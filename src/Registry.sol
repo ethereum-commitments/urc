@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import { BLS } from "./lib/BLS.sol";
-import { MerkleTree } from "./lib/MerkleTree.sol";
-import { IRegistry } from "./IRegistry.sol";
+import {BLS} from "./lib/BLS.sol";
+import {MerkleTree} from "./lib/MerkleTree.sol";
+import {IRegistry} from "./IRegistry.sol";
+import {ISlasher} from "./ISlasher.sol";
 
 contract Registry is IRegistry {
     using BLS for *;
@@ -15,13 +16,14 @@ contract Registry is IRegistry {
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200;
-    bytes public constant DOMAIN_SEPARATOR = bytes("Universal-Registry-Contract");
+    bytes public constant DOMAIN_SEPARATOR =
+        bytes("Universal-Registry-Contract");
 
-    function register(Registration[] calldata regs, address withdrawalAddress, uint16 unregistrationDelay)
-        external
-        payable
-        returns (bytes32 registrationRoot)
-    {
+    function register(
+        Registration[] calldata regs,
+        address withdrawalAddress,
+        uint16 unregistrationDelay
+    ) external payable returns (bytes32 registrationRoot) {
         if (msg.value < MIN_COLLATERAL) {
             revert InsufficientCollateral();
         }
@@ -48,10 +50,16 @@ contract Registry is IRegistry {
             unregisteredAt: 0
         });
 
-        emit OperatorRegistered(registrationRoot, msg.value, unregistrationDelay);
+        emit OperatorRegistered(
+            registrationRoot,
+            msg.value,
+            unregistrationDelay
+        );
     }
 
-    function _merkleizeRegistrations(Registration[] calldata regs) internal returns (bytes32 registrationRoot) {
+    function _merkleizeRegistrations(
+        Registration[] calldata regs
+    ) internal returns (bytes32 registrationRoot) {
         // Create leaves array with padding
         bytes32[] memory leaves = new bytes32[](regs.length);
 
@@ -76,31 +84,46 @@ contract Registry is IRegistry {
             revert FraudProofWindowExpired();
         }
 
-        uint256 collateralGwei = verifyMerkleProof(registrationRoot, reg, proof, leafIndex);
+        uint256 collateralGwei = verifyMerkleProof(
+            registrationRoot,
+            keccak256(abi.encode(reg)),
+            proof,
+            leafIndex
+        );
 
         if (collateralGwei == 0) {
             revert NotRegisteredValidator();
         }
 
         // Reconstruct registration message
-        bytes memory message = abi.encodePacked(operator.withdrawalAddress, operator.unregistrationDelay);
+        bytes memory message = abi.encodePacked(
+            operator.withdrawalAddress,
+            operator.unregistrationDelay
+        );
 
         // Verify registration signature
         if (BLS.verify(message, reg.signature, reg.pubkey, DOMAIN_SEPARATOR)) {
             revert FraudProofChallengeInvalid();
         }
-        emit RegistrationSlashed(registrationRoot, msg.sender, operator.withdrawalAddress, reg);
+        emit RegistrationSlashed(
+            registrationRoot,
+            msg.sender,
+            operator.withdrawalAddress,
+            reg
+        );
 
         // Transfer to the challenger
         slashedCollateralWei = MIN_COLLATERAL;
-        (bool success,) = msg.sender.call{ value: slashedCollateralWei }(""); // todo reentrancy
+        (bool success, ) = msg.sender.call{value: slashedCollateralWei}(""); // todo reentrancy
         if (!success) {
             revert EthTransferFailed();
         }
 
         // Return any remaining funds to Operator
-        uint256 remainingWei = uint256(operator.collateralGwei) * 1 gwei - slashedCollateralWei;
-        (success,) = operator.withdrawalAddress.call{ value: remainingWei }(""); // todo reentrancy
+        uint256 remainingWei = uint256(operator.collateralGwei) *
+            1 gwei -
+            slashedCollateralWei;
+        (success, ) = operator.withdrawalAddress.call{value: remainingWei}(""); // todo reentrancy
         if (!success) {
             revert EthTransferFailed();
         }
@@ -112,12 +135,18 @@ contract Registry is IRegistry {
 
     function verifyMerkleProof(
         bytes32 registrationRoot,
-        Registration calldata reg,
+        bytes32 leaf,
         bytes32[] calldata proof,
         uint256 leafIndex
     ) public view returns (uint256 collateralGwei) {
-        bytes32 leaf = keccak256(abi.encode(reg));
-        if (MerkleTree.verifyProofCalldata(registrationRoot, leaf, leafIndex, proof)) {
+        if (
+            MerkleTree.verifyProofCalldata(
+                registrationRoot,
+                leaf,
+                leafIndex,
+                proof
+            )
+        ) {
             collateralGwei = registrations[registrationRoot].collateralGwei;
         }
     }
@@ -149,7 +178,10 @@ contract Registry is IRegistry {
         }
 
         // Check that enough time has passed
-        if (block.number < operator.unregisteredAt + operator.unregistrationDelay) {
+        if (
+            block.number <
+            operator.unregisteredAt + operator.unregistrationDelay
+        ) {
             revert UnregistrationDelayNotMet();
         }
 
@@ -161,7 +193,9 @@ contract Registry is IRegistry {
         uint256 amountToReturn = uint256(operator.collateralGwei) * 1 gwei;
 
         // TODO safe transfer for rentrancy
-        (bool success,) = operator.withdrawalAddress.call{ value: amountToReturn }("");
+        (bool success, ) = operator.withdrawalAddress.call{
+            value: amountToReturn
+        }("");
         require(success, "Transfer failed");
 
         emit OperatorDeleted(registrationRoot);

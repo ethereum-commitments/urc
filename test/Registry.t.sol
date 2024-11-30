@@ -191,7 +191,7 @@ contract RegistryTest is Test {
 
         uint256 gotCollateral = registry.verifyMerkleProof(
             registrationRoot,
-            registrations[0],
+            leaves[0],
             proof,
             0 // leafIndex
         );
@@ -307,13 +307,13 @@ contract RegistryTest is Test {
         // Test first proof path
         uint256 leafIndex = 0;
         bytes32[] memory proof = MerkleTree.generateProof(leaves, leafIndex);
-        uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, registrations[0], proof, leafIndex);
+        uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, leaves[0], proof, leafIndex);
         assertEq(gotCollateral, uint56(collateral / 1 gwei), "Wrong collateral amount");
 
         // Test second proof path
         leafIndex = 1;
         proof = MerkleTree.generateProof(leaves, leafIndex);
-        gotCollateral = registry.verifyMerkleProof(registrationRoot, registrations[1], proof, leafIndex);
+        gotCollateral = registry.verifyMerkleProof(registrationRoot, leaves[1], proof, leafIndex);
         assertEq(gotCollateral, uint56(collateral / 1 gwei), "Wrong collateral amount");
     }
 
@@ -418,7 +418,7 @@ contract RegistryTest is Test {
         // Test all proof paths
         for (uint256 i = 0; i < leaves.length; i++) {
             bytes32[] memory proof = MerkleTree.generateProof(leaves, i);
-            uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, registrations[i], proof, i);
+            uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, leaves[i], proof, i);
             assertEq(gotCollateral, uint56(collateral / 1 gwei), "Wrong collateral amount");
         }
     }
@@ -440,7 +440,7 @@ contract RegistryTest is Test {
         // Test all proof paths
         for (uint256 i = 0; i < leaves.length; i++) {
             bytes32[] memory proof = MerkleTree.generateProof(leaves, i);
-            uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, registrations[i], proof, i);
+            uint256 gotCollateral = registry.verifyMerkleProof(registrationRoot, leaves[i], proof, i);
             assertEq(gotCollateral, uint56(collateral / 1 gwei), "Wrong collateral amount");
         }
     }
@@ -652,4 +652,9 @@ contract RegistryTest is Test {
         vm.expectRevert(IRegistry.NotUnregistered.selector);
         registry.claimCollateral(registrationRoot);
     }
+}
+
+
+contract RegistrySlasherTest is Test {
+
 }
