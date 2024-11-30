@@ -33,6 +33,7 @@ interface IRegistry {
         bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg
     );
     event OperatorDeleted(bytes32 registrationRoot);
+    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point validatorPubKey);
     event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
 
     // Errors
@@ -47,6 +48,10 @@ interface IRegistry {
     error UnregistrationDelayNotMet();
     error NoCollateralToClaim();
     error FraudProofWindowExpired();
+    error FraudProofWindowNotMet();
+    error DelegationSignatureInvalid();
+    error SlashAmountExceedsCollateral();
+    error NoCollateralSlashed();
     error NotRegisteredValidator();
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();

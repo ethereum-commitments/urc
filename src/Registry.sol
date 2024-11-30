@@ -203,4 +203,131 @@ contract Registry is IRegistry {
         // Clear operator info
         delete registrations[registrationRoot];
     }
+
+    function slashOperator(
+        bytes32 registrationRoot,
+        BLS.G2Point calldata registrationSignature,
+        bytes32[] calldata proof,
+        uint256 leafIndex,
+        ISlasher.SignedDelegation calldata signedDelegation,
+        bytes calldata evidence
+    ) external {
+        Operator storage operator = registrations[registrationRoot];
+
+        if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
+            revert FraudProofWindowNotMet();
+        }
+
+        uint256 collateralGwei = _verifySlashProof(
+            registrationRoot,
+            registrationSignature,
+            proof,
+            leafIndex,
+            signedDelegation
+        );
+
+        uint256 slashAmountGwei = _executeSlash(
+            signedDelegation,
+            evidence,
+            collateralGwei
+        );
+
+        _distributeSlashedFunds(
+            operator,
+            collateralGwei,
+            slashAmountGwei
+        );
+
+        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.validatorPubKey);
+
+        // Delete the operator
+        delete registrations[registrationRoot];
+        emit OperatorDeleted(registrationRoot);
+    }
+
+    function _verifySlashProof(
+        bytes32 registrationRoot,
+        BLS.G2Point calldata registrationSignature,
+        bytes32[] calldata proof,
+        uint256 leafIndex,
+        ISlasher.SignedDelegation calldata signedDelegation
+    ) internal view returns (uint256) {
+        // Reconstruct Leaf using pubkey in SignedDelegation to check equivalence
+        bytes32 leaf = keccak256(
+            abi.encode(
+                signedDelegation.delegation.validatorPubKey,
+                registrationSignature
+            )
+        );
+
+        uint256 collateralGwei = verifyMerkleProof(
+            registrationRoot,
+            leaf,
+            proof,
+            leafIndex
+        );
+
+        if (collateralGwei == 0) {
+            revert NotRegisteredValidator();
+        }
+
+        // Reconstruct Delegation message
+        bytes memory message = abi.encode(signedDelegation.delegation);
+
+        if (
+            !BLS.verify(
+                message,
+                signedDelegation.signature,
+                signedDelegation.delegation.validatorPubKey,
+                DOMAIN_SEPARATOR
+            )
+        ) {
+            revert DelegationSignatureInvalid();
+        }
+
+        return collateralGwei;
+    }
+
+    function _executeSlash(
+        ISlasher.SignedDelegation calldata signedDelegation,
+        bytes calldata evidence,
+        uint256 collateralGwei
+    ) internal returns (uint256) {
+        ISlasher slasher = ISlasher(signedDelegation.delegation.slasher);
+
+        uint256 slashAmountGwei = slasher.slash(
+            signedDelegation.delegation,
+            evidence
+        );
+
+        if (slashAmountGwei > collateralGwei) {
+            revert SlashAmountExceedsCollateral();
+        }
+
+        if (slashAmountGwei == 0) {
+            revert NoCollateralSlashed();
+        }
+
+        return slashAmountGwei;
+    }
+
+    function _distributeSlashedFunds(
+        Operator storage operator,
+        uint256 collateralGwei,
+        uint256 slashAmountGwei
+    ) internal {
+        // Transfer to the slasher
+        (bool success, ) = msg.sender.call{value: slashAmountGwei * 1 gwei}("");
+        if (!success) {
+            revert EthTransferFailed();
+        }
+
+        // Return any remaining funds to Operator
+        (success, ) = operator.withdrawalAddress.call{
+            value: (collateralGwei - slashAmountGwei) * 1 gwei
+        }("");
+        if (!success) {
+            revert EthTransferFailed();
+        }
+    }
 }
