@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import {BLS} from "./lib/BLS.sol";
-import {MerkleTree} from "./lib/MerkleTree.sol";
-import {IRegistry} from "./IRegistry.sol";
-import {ISlasher} from "./ISlasher.sol";
+import { BLS } from "./lib/BLS.sol";
+import { MerkleTree } from "./lib/MerkleTree.sol";
+import { IRegistry } from "./IRegistry.sol";
+import { ISlasher } from "./ISlasher.sol";
 
 contract Registry is IRegistry {
     using BLS for *;
@@ -15,14 +15,14 @@ contract Registry is IRegistry {
     // Constants
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
-    uint256 public constant FRAUD_PROOF_WINDOW = 7200;     // 1 day
+    uint256 public constant FRAUD_PROOF_WINDOW = 7200; // 1 day
     bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
 
-    function register(
-        Registration[] calldata regs,
-        address withdrawalAddress,
-        uint16 unregistrationDelay
-    ) external payable returns (bytes32 registrationRoot) {
+    function register(Registration[] calldata regs, address withdrawalAddress, uint16 unregistrationDelay)
+        external
+        payable
+        returns (bytes32 registrationRoot)
+    {
         if (msg.value < MIN_COLLATERAL) {
             revert InsufficientCollateral();
         }
@@ -49,25 +49,15 @@ contract Registry is IRegistry {
             unregisteredAt: 0
         });
 
-        emit OperatorRegistered(
-            registrationRoot,
-            msg.value,
-            unregistrationDelay
-        );
+        emit OperatorRegistered(registrationRoot, msg.value, unregistrationDelay);
     }
 
-    function verifyMerkleProof(
-        bytes32 registrationRoot,
-        bytes32 leaf,
-        bytes32[] calldata proof,
-        uint256 leafIndex
-    ) external view returns (uint256 collateralGwei) {
-        collateralGwei = _verifyMerkleProof(
-            registrationRoot,
-            leaf,
-            proof,
-            leafIndex
-        );
+    function verifyMerkleProof(bytes32 registrationRoot, bytes32 leaf, bytes32[] calldata proof, uint256 leafIndex)
+        external
+        view
+        returns (uint256 collateralGwei)
+    {
+        collateralGwei = _verifyMerkleProof(registrationRoot, leaf, proof, leafIndex);
     }
 
     function slashRegistration(
@@ -82,46 +72,31 @@ contract Registry is IRegistry {
             revert FraudProofWindowExpired();
         }
 
-        uint256 collateralGwei = _verifyMerkleProof(
-            registrationRoot,
-            keccak256(abi.encode(reg)),
-            proof,
-            leafIndex
-        );
+        uint256 collateralGwei = _verifyMerkleProof(registrationRoot, keccak256(abi.encode(reg)), proof, leafIndex);
 
         if (collateralGwei == 0) {
             revert NotRegisteredValidator();
         }
 
         // Reconstruct registration message
-        bytes memory message = abi.encodePacked(
-            operator.withdrawalAddress,
-            operator.unregistrationDelay
-        );
+        bytes memory message = abi.encodePacked(operator.withdrawalAddress, operator.unregistrationDelay);
 
         // Verify registration signature
         if (BLS.verify(message, reg.signature, reg.pubkey, DOMAIN_SEPARATOR)) {
             revert FraudProofChallengeInvalid();
         }
-        emit RegistrationSlashed(
-            registrationRoot,
-            msg.sender,
-            operator.withdrawalAddress,
-            reg
-        );
+        emit RegistrationSlashed(registrationRoot, msg.sender, operator.withdrawalAddress, reg);
 
         // Transfer to the challenger
         slashedCollateralWei = MIN_COLLATERAL;
-        (bool success, ) = msg.sender.call{value: slashedCollateralWei}(""); // todo reentrancy
+        (bool success,) = msg.sender.call{ value: slashedCollateralWei }(""); // todo reentrancy
         if (!success) {
             revert EthTransferFailed();
         }
 
         // Return any remaining funds to Operator
-        uint256 remainingWei = uint256(operator.collateralGwei) *
-            1 gwei -
-            slashedCollateralWei;
-        (success, ) = operator.withdrawalAddress.call{value: remainingWei}(""); // todo reentrancy
+        uint256 remainingWei = uint256(operator.collateralGwei) * 1 gwei - slashedCollateralWei;
+        (success,) = operator.withdrawalAddress.call{ value: remainingWei }(""); // todo reentrancy
         if (!success) {
             revert EthTransferFailed();
         }
@@ -158,10 +133,7 @@ contract Registry is IRegistry {
         }
 
         // Check that enough time has passed
-        if (
-            block.number <
-            operator.unregisteredAt + operator.unregistrationDelay
-        ) {
+        if (block.number < operator.unregisteredAt + operator.unregistrationDelay) {
             revert UnregistrationDelayNotMet();
         }
 
@@ -173,9 +145,7 @@ contract Registry is IRegistry {
         uint256 amountToReturn = uint256(operator.collateralGwei) * 1 gwei;
 
         // TODO safe transfer for rentrancy
-        (bool success, ) = operator.withdrawalAddress.call{
-            value: amountToReturn
-        }("");
+        (bool success,) = operator.withdrawalAddress.call{ value: amountToReturn }("");
         require(success, "Transfer failed");
 
         emit OperatorDeleted(registrationRoot);
@@ -198,25 +168,12 @@ contract Registry is IRegistry {
             revert FraudProofWindowNotMet();
         }
 
-        uint256 collateralGwei = _verifyDelegation(
-            registrationRoot,
-            registrationSignature,
-            proof,
-            leafIndex,
-            signedDelegation
-        );
+        uint256 collateralGwei =
+            _verifyDelegation(registrationRoot, registrationSignature, proof, leafIndex, signedDelegation);
 
-        slashAmountGwei = _executeSlash(
-            signedDelegation,
-            evidence,
-            collateralGwei
-        );
+        slashAmountGwei = _executeSlash(signedDelegation, evidence, collateralGwei);
 
-        _distributeSlashedFunds(
-            operator,
-            collateralGwei,
-            slashAmountGwei
-        );
+        _distributeSlashedFunds(operator, collateralGwei, slashAmountGwei);
 
         emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.validatorPubKey);
 
@@ -227,9 +184,7 @@ contract Registry is IRegistry {
 
     // Internal functions
 
-    function _merkleizeRegistrations(
-        Registration[] calldata regs
-    ) internal returns (bytes32 registrationRoot) {
+    function _merkleizeRegistrations(Registration[] calldata regs) internal returns (bytes32 registrationRoot) {
         // Create leaves array with padding
         bytes32[] memory leaves = new bytes32[](regs.length);
 
@@ -242,20 +197,12 @@ contract Registry is IRegistry {
         registrationRoot = MerkleTree.generateTree(leaves);
     }
 
-    function _verifyMerkleProof(
-        bytes32 registrationRoot,
-        bytes32 leaf,
-        bytes32[] calldata proof,
-        uint256 leafIndex
-    ) internal view returns (uint256 collateralGwei) {
-        if (
-            MerkleTree.verifyProofCalldata(
-                registrationRoot,
-                leaf,
-                leafIndex,
-                proof
-            )
-        ) {
+    function _verifyMerkleProof(bytes32 registrationRoot, bytes32 leaf, bytes32[] calldata proof, uint256 leafIndex)
+        internal
+        view
+        returns (uint256 collateralGwei)
+    {
+        if (MerkleTree.verifyProofCalldata(registrationRoot, leaf, leafIndex, proof)) {
             collateralGwei = registrations[registrationRoot].collateralGwei;
         }
     }
@@ -268,19 +215,9 @@ contract Registry is IRegistry {
         ISlasher.SignedDelegation calldata signedDelegation
     ) internal view returns (uint256 collateralGwei) {
         // Reconstruct Leaf using pubkey in SignedDelegation to check equivalence
-        bytes32 leaf = keccak256(
-            abi.encode(
-                signedDelegation.delegation.validatorPubKey,
-                registrationSignature
-            )
-        );
+        bytes32 leaf = keccak256(abi.encode(signedDelegation.delegation.validatorPubKey, registrationSignature));
 
-        collateralGwei = _verifyMerkleProof(
-            registrationRoot,
-            leaf,
-            proof,
-            leafIndex
-        );
+        collateralGwei = _verifyMerkleProof(registrationRoot, leaf, proof, leafIndex);
 
         if (collateralGwei == 0) {
             revert NotRegisteredValidator();
@@ -294,10 +231,7 @@ contract Registry is IRegistry {
 
         if (
             !BLS.verify(
-                message,
-                signedDelegation.signature,
-                signedDelegation.delegation.validatorPubKey,
-                domainSeparator
+                message, signedDelegation.signature, signedDelegation.delegation.validatorPubKey, domainSeparator
             )
         ) {
             revert DelegationSignatureInvalid();
@@ -309,10 +243,7 @@ contract Registry is IRegistry {
         bytes calldata evidence,
         uint256 collateralGwei
     ) internal returns (uint256 slashAmountGwei) {
-        slashAmountGwei = ISlasher(signedDelegation.delegation.slasher).slash(
-            signedDelegation.delegation,
-            evidence
-        );
+        slashAmountGwei = ISlasher(signedDelegation.delegation.slasher).slash(signedDelegation.delegation, evidence);
 
         if (slashAmountGwei == 0) {
             revert NoCollateralSlashed();
@@ -323,21 +254,17 @@ contract Registry is IRegistry {
         }
     }
 
-    function _distributeSlashedFunds(
-        Operator storage operator,
-        uint256 collateralGwei,
-        uint256 slashAmountGwei
-    ) internal {
+    function _distributeSlashedFunds(Operator storage operator, uint256 collateralGwei, uint256 slashAmountGwei)
+        internal
+    {
         // Transfer to the slasher
-        (bool success, ) = msg.sender.call{value: slashAmountGwei * 1 gwei}("");
+        (bool success,) = msg.sender.call{ value: slashAmountGwei * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }
 
         // Return any remaining funds to Operator
-        (success, ) = operator.withdrawalAddress.call{
-            value: (collateralGwei - slashAmountGwei) * 1 gwei
-        }("");
+        (success,) = operator.withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei) * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }

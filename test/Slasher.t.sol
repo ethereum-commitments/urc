@@ -3,12 +3,12 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {BLS} from "../src/lib/BLS.sol";
-import {MerkleTree} from "../src/lib/MerkleTree.sol";
+import { BLS } from "../src/lib/BLS.sol";
+import { MerkleTree } from "../src/lib/MerkleTree.sol";
 import "../src/Registry.sol";
-import {IRegistry} from "../src/IRegistry.sol";
-import {ISlasher} from "../src/ISlasher.sol";
-import {UnitTestHelper} from "./UnitTestHelper.sol";
+import { IRegistry } from "../src/IRegistry.sol";
+import { ISlasher } from "../src/ISlasher.sol";
+import { UnitTestHelper } from "./UnitTestHelper.sol";
 
 contract DummySlasher is ISlasher {
     uint256 public SLASH_AMOUNT_GWEI;
@@ -21,10 +21,10 @@ contract DummySlasher is ISlasher {
         return bytes("DUMMY-SLASHER-DOMAIN-SEPARATOR");
     }
 
-    function slash(
-        ISlasher.Delegation calldata delegation,
-        bytes calldata evidence
-    ) external returns (uint256 slashAmountGwei) {
+    function slash(ISlasher.Delegation calldata delegation, bytes calldata evidence)
+        external
+        returns (uint256 slashAmountGwei)
+    {
         slashAmountGwei = SLASH_AMOUNT_GWEI;
     }
 }
@@ -72,7 +72,9 @@ contract DummySlasherTest is UnitTestHelper {
         // slash from a different address
         vm.prank(bob);
         vm.expectEmit(address(registry));
-        emit IRegistry.OperatorSlashed(result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.validatorPubKey);
+        emit IRegistry.OperatorSlashed(
+            result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.validatorPubKey
+        );
         emit IRegistry.OperatorDeleted(result.registrationRoot);
         uint256 gotSlashAmountGwei = registry.slashCommitment(
             result.registrationRoot,
@@ -86,13 +88,7 @@ contract DummySlasherTest is UnitTestHelper {
 
         // verify balances updated correctly
         _verifySlashingBalances(
-            bob,
-            alice,
-            slashAmountGwei * 1 gwei,
-            collateral,
-            bobBalanceBefore,
-            aliceBalanceBefore,
-            urcBalanceBefore
+            bob, alice, slashAmountGwei * 1 gwei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         // Verify operator was deleted
@@ -156,12 +152,7 @@ contract DummySlasherTest is UnitTestHelper {
 
         vm.expectRevert(IRegistry.NotRegisteredValidator.selector);
         registry.slashCommitment(
-            result.registrationRoot,
-            result.registrations[0].signature,
-            invalidProof,
-            0,
-            result.signedDelegation,
-            ""
+            result.registrationRoot, result.registrations[0].signature, invalidProof, 0, result.signedDelegation, ""
         );
     }
 
@@ -182,11 +173,8 @@ contract DummySlasherTest is UnitTestHelper {
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
         // Sign delegation with different secret key
-        ISlasher.SignedDelegation memory badSignedDelegation = signDelegation(
-            SECRET_KEY_2,
-            result.signedDelegation.delegation,
-            params.domainSeparator
-        );
+        ISlasher.SignedDelegation memory badSignedDelegation =
+            signDelegation(SECRET_KEY_2, result.signedDelegation.delegation, params.domainSeparator);
 
         bytes32[] memory leaves = _hashToLeaves(result.registrations);
         uint256 leafIndex = 0;
