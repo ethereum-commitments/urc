@@ -57,19 +57,18 @@ contract Registry is IRegistry {
         );
     }
 
-    function _merkleizeRegistrations(
-        Registration[] calldata regs
-    ) internal returns (bytes32 registrationRoot) {
-        // Create leaves array with padding
-        bytes32[] memory leaves = new bytes32[](regs.length);
-
-        // Create leaf nodes by hashing Registration structs
-        for (uint256 i = 0; i < regs.length; i++) {
-            leaves[i] = keccak256(abi.encode(regs[i]));
-            emit ValidatorRegistered(i, regs[i], leaves[i]);
-        }
-
-        registrationRoot = MerkleTree.generateTree(leaves);
+    function verifyMerkleProof(
+        bytes32 registrationRoot,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        uint256 leafIndex
+    ) external view returns (uint256 collateralGwei) {
+        collateralGwei = _verifyMerkleProof(
+            registrationRoot,
+            leaf,
+            proof,
+            leafIndex
+        );
     }
 
     function slashRegistration(
@@ -84,7 +83,7 @@ contract Registry is IRegistry {
             revert FraudProofWindowExpired();
         }
 
-        uint256 collateralGwei = verifyMerkleProof(
+        uint256 collateralGwei = _verifyMerkleProof(
             registrationRoot,
             keccak256(abi.encode(reg)),
             proof,
@@ -131,24 +130,6 @@ contract Registry is IRegistry {
         // Delete the operator
         delete registrations[registrationRoot];
         emit OperatorDeleted(registrationRoot);
-    }
-
-    function verifyMerkleProof(
-        bytes32 registrationRoot,
-        bytes32 leaf,
-        bytes32[] calldata proof,
-        uint256 leafIndex
-    ) public view returns (uint256 collateralGwei) {
-        if (
-            MerkleTree.verifyProofCalldata(
-                registrationRoot,
-                leaf,
-                leafIndex,
-                proof
-            )
-        ) {
-            collateralGwei = registrations[registrationRoot].collateralGwei;
-        }
     }
 
     function unregister(bytes32 registrationRoot) external {
@@ -211,14 +192,14 @@ contract Registry is IRegistry {
         uint256 leafIndex,
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence
-    ) external {
+    ) external returns (uint256 slashAmountGwei) {
         Operator storage operator = registrations[registrationRoot];
 
         if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowNotMet();
         }
 
-        uint256 collateralGwei = _verifySlashProof(
+        uint256 collateralGwei = _verifyDelegation(
             registrationRoot,
             registrationSignature,
             proof,
@@ -226,7 +207,7 @@ contract Registry is IRegistry {
             signedDelegation
         );
 
-        uint256 slashAmountGwei = _executeSlash(
+        slashAmountGwei = _executeSlash(
             signedDelegation,
             evidence,
             collateralGwei
@@ -245,13 +226,48 @@ contract Registry is IRegistry {
         emit OperatorDeleted(registrationRoot);
     }
 
-    function _verifySlashProof(
+    // Internal functions
+
+    function _merkleizeRegistrations(
+        Registration[] calldata regs
+    ) internal returns (bytes32 registrationRoot) {
+        // Create leaves array with padding
+        bytes32[] memory leaves = new bytes32[](regs.length);
+
+        // Create leaf nodes by hashing Registration structs
+        for (uint256 i = 0; i < regs.length; i++) {
+            leaves[i] = keccak256(abi.encode(regs[i]));
+            emit ValidatorRegistered(i, regs[i], leaves[i]);
+        }
+
+        registrationRoot = MerkleTree.generateTree(leaves);
+    }
+
+    function _verifyMerkleProof(
+        bytes32 registrationRoot,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        uint256 leafIndex
+    ) internal view returns (uint256 collateralGwei) {
+        if (
+            MerkleTree.verifyProofCalldata(
+                registrationRoot,
+                leaf,
+                leafIndex,
+                proof
+            )
+        ) {
+            collateralGwei = registrations[registrationRoot].collateralGwei;
+        }
+    }
+
+    function _verifyDelegation(
         bytes32 registrationRoot,
         BLS.G2Point calldata registrationSignature,
         bytes32[] calldata proof,
         uint256 leafIndex,
         ISlasher.SignedDelegation calldata signedDelegation
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 collateralGwei) {
         // Reconstruct Leaf using pubkey in SignedDelegation to check equivalence
         bytes32 leaf = keccak256(
             abi.encode(
@@ -260,7 +276,7 @@ contract Registry is IRegistry {
             )
         );
 
-        uint256 collateralGwei = verifyMerkleProof(
+        collateralGwei = _verifyMerkleProof(
             registrationRoot,
             leaf,
             proof,
@@ -274,41 +290,38 @@ contract Registry is IRegistry {
         // Reconstruct Delegation message
         bytes memory message = abi.encode(signedDelegation.delegation);
 
+        // Recover Slasher contract domain separator
+        bytes memory domainSeparator = ISlasher(signedDelegation.delegation.slasher).DOMAIN_SEPARATOR();
+
         if (
             !BLS.verify(
                 message,
                 signedDelegation.signature,
                 signedDelegation.delegation.validatorPubKey,
-                DOMAIN_SEPARATOR
+                domainSeparator
             )
         ) {
             revert DelegationSignatureInvalid();
         }
-
-        return collateralGwei;
     }
 
     function _executeSlash(
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence,
         uint256 collateralGwei
-    ) internal returns (uint256) {
-        ISlasher slasher = ISlasher(signedDelegation.delegation.slasher);
-
-        uint256 slashAmountGwei = slasher.slash(
+    ) internal returns (uint256 slashAmountGwei) {
+        slashAmountGwei = ISlasher(signedDelegation.delegation.slasher).slash(
             signedDelegation.delegation,
             evidence
         );
-
-        if (slashAmountGwei > collateralGwei) {
-            revert SlashAmountExceedsCollateral();
-        }
 
         if (slashAmountGwei == 0) {
             revert NoCollateralSlashed();
         }
 
-        return slashAmountGwei;
+        if (slashAmountGwei > collateralGwei) {
+            revert SlashAmountExceedsCollateral();
+        }
     }
 
     function _distributeSlashedFunds(

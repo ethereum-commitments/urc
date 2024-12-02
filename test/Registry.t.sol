@@ -17,16 +17,8 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_register() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
-
-        IRegistry.Registration[] memory registrations =
-            _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
-
-        bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
-
-        _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
-        );
+        uint256 collateral = registry.MIN_COLLATERAL();
+        basicRegistration(SECRET_KEY_1, collateral, alice);
     }
 
     function test_register_insufficientCollateral() public {

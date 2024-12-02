@@ -17,4 +17,6 @@ interface ISlasher {
     }
 
     function slash(Delegation calldata delegation, bytes calldata evidence) external returns (uint256 slashAmountGwei);
+
+    function DOMAIN_SEPARATOR() external view returns (bytes memory);
 }
