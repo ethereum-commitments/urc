@@ -21,3 +21,12 @@ quote_style = "double"
 bracket_spacing = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "lib/openzeppelin-contracts/:@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+]
+
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
+holesky = "${ETH_RPC_URL_HOLESKY}"
