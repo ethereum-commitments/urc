@@ -15,9 +15,8 @@ contract Registry is IRegistry {
     // Constants
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
-    uint256 public constant FRAUD_PROOF_WINDOW = 7200;
-    bytes public constant DOMAIN_SEPARATOR =
-        bytes("Universal-Registry-Contract");
+    uint256 public constant FRAUD_PROOF_WINDOW = 7200;     // 1 day
+    bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
 
     function register(
         Registration[] calldata regs,
