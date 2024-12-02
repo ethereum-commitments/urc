@@ -71,7 +71,7 @@ contract DummySlasherTest is UnitTestHelper {
 
         // slash from a different address
         vm.prank(bob);
-        uint256 gotSlashAmountGwei = registry.slashOperator(
+        uint256 gotSlashAmountGwei = registry.slashCommitment(
             result.registrationRoot,
             result.registrations[leafIndex].signature,
             proof,

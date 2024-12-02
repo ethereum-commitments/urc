@@ -185,7 +185,7 @@ contract Registry is IRegistry {
         delete registrations[registrationRoot];
     }
 
-    function slashOperator(
+    function slashCommitment(
         bytes32 registrationRoot,
         BLS.G2Point calldata registrationSignature,
         bytes32[] calldata proof,

@@ -96,7 +96,7 @@ interface IRegistry {
 
     function claimCollateral(bytes32 registrationRoot) external;
 
-    function slashOperator(
+    function slashCommitment(
         bytes32 registrationRoot,
         BLS.G2Point calldata registrationSignature,
         bytes32[] calldata proof,
