@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-contract IExclusionPreconfSlasher {
+// Adapted from https://github.com/chainbound/bolt/tree/unstable/bolt-contracts
+
+contract PreconfStructs {
     struct SignedCommitment {
         uint64 slot;
         bytes signature;
@@ -28,7 +30,7 @@ contract IExclusionPreconfSlasher {
         uint256 balance;
     }
 
-    struct Proof {
+    struct ExclusionProof {
         // block number where the transactions were submitted
         uint256 targetBlockNumber;
         // RLP-encoded block header of the previous block of the target block
@@ -36,11 +38,26 @@ contract IExclusionPreconfSlasher {
         bytes previousBlockHeaderRLP;
         // RLP-encoded block header where the committed transactions are included
         bytes targetBlockHeaderRLP;
-        // merkle proof of the account in the state trie of the previous block
+        // Merkle trie inclusion proof for the node *nearest* the excluded node.
+        // (checked against the targetBlockHeader.txRoot)
+        bytes txMerkleExclusionProof;
+        // tx index of the node *nearest* the excluded node
+        uint256 txIndexInBlock;
+    }
+
+    struct InclusionProof {
+        // block number where the transactions are included
+        uint256 inclusionBlockNumber;
+        // RLP-encoded block header of the previous block of the inclusion block
+        // (for clarity: `previousBlockHeader.number == inclusionBlockNumber - 1`)
+        bytes previousBlockHeaderRLP;
+        // RLP-encoded block header where the committed transactions are included
+        bytes inclusionBlockHeaderRLP;
+        // merkle inclusion proof of the account in the state trie of the previous block
         // (checked against the previousBlockHeader.stateRoot)
         bytes accountMerkleProof;
-        // merkle proof of the transactions in the transaction trie of the target block
-        // (checked against the targetBlockHeader.txRoot). The order of the proofs should match
+        // merkle inclusion proof of the transactions in the transaction trie of the inclusion block
+        // (checked against the inclusionBlockHeader.txRoot). The order of the proofs should match
         // the order of the committed transactions in the challenge: `Challenge.committedTxs`.
         bytes[] txMerkleProofs;
         // indexes of the committed transactions in the block. The order of the indexes should match
