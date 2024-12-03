@@ -15,7 +15,6 @@ import {TransactionDecoder} from "./lib/TransactionDecoder.sol";
 import {PreconfStructs} from "./PreconfStructs.sol";
 import {ISlasher} from "../src/ISlasher.sol";
 
-
 contract ExclusionPreconfSlasher is ISlasher {
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
@@ -36,7 +35,8 @@ contract ExclusionPreconfSlasher is ISlasher {
     error BlockIsNotFinalized();
     error InvalidParentBlockHash();
     error UnexpectedSigner();
-    error TransactionNotExcluded();
+    error TransactionExcluded();
+    error WrongTransactionHashProof();
     error BlockIsTooOld();
     error InvalidBlockNumber();
     error InvalidBlockHash();
@@ -62,18 +62,27 @@ contract ExclusionPreconfSlasher is ISlasher {
         bytes calldata evidence
     ) external returns (uint256 slashAmountGwei) {
         // Assumes delegation to ECDSA signer as part of the metadata field
-        (address commitmentSigner, uint256 slot) = abi.decode(delegation.metadata, (address, uint256));
+        (address commitmentSigner, uint256 slot) = abi.decode(
+            delegation.metadata,
+            (address, uint256)
+        );
 
-        // Recover the slashing evidence 
-        (PreconfStructs.SignedCommitment memory commitment, PreconfStructs.ExclusionProof memory proof) = abi.decode(evidence, (PreconfStructs.SignedCommitment, PreconfStructs.ExclusionProof));
+        // Recover the slashing evidence
+        (
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory proof
+        ) = abi.decode(
+                evidence,
+                (PreconfStructs.SignedCommitment, PreconfStructs.InclusionProof)
+            );
 
         // Verify that the slot in the Delegation message matches the slot in the signed commitment
         if (slot != commitment.slot) {
             revert NotComittedToThisSlot();
         }
 
-        // Verify the exclusion proof (reverts if invalid)
-        _verifyExclusionProof(commitment, proof, commitmentSigner);
+        // If the inclusion proof is valid (doesn't revert) they should be slashed for not excluding the transaction
+        _verifyInclusionProof(commitment, proof, commitmentSigner);
 
         // Return the slash amount to the URC slasher
         slashAmountGwei = SLASH_AMOUNT_GWEI;
@@ -83,9 +92,9 @@ contract ExclusionPreconfSlasher is ISlasher {
         return "0xeeeeeeee";
     }
 
-    function _verifyExclusionProof(
+    function _verifyInclusionProof(
         PreconfStructs.SignedCommitment memory commitment,
-        PreconfStructs.ExclusionProof memory proof,
+        PreconfStructs.InclusionProof memory proof,
         address commitmentSigner
     ) internal {
         uint256 targetSlot = commitment.slot;
@@ -103,7 +112,7 @@ contract ExclusionPreconfSlasher is ISlasher {
 
         // Check that the previous block is within the EVM lookback window for block hashes.
         // Clearly, if the previous block is available, the target block will be too.
-        uint256 previousBlockNumber = proof.targetBlockNumber - 1;
+        uint256 previousBlockNumber = proof.inclusionBlockNumber - 1;
         if (
             previousBlockNumber > block.number ||
             previousBlockNumber < block.number - BLOCKHASH_EVM_LOOKBACK
@@ -112,7 +121,9 @@ contract ExclusionPreconfSlasher is ISlasher {
         }
 
         // Get the trusted block hash for the block number in which the transactions were included.
-        bytes32 trustedPreviousBlockHash = blockhash(proof.targetBlockNumber);
+        bytes32 trustedPreviousBlockHash = blockhash(
+            proof.inclusionBlockNumber
+        );
 
         // Check the integrity of the trusted block hash
         bytes32 previousBlockHash = keccak256(proof.previousBlockHeaderRLP);
@@ -122,9 +133,9 @@ contract ExclusionPreconfSlasher is ISlasher {
 
         // Recover the commitment data if the committed signedTx is valid
         (
-            address txSender,
+            ,
             address recoveredCommitmentSigner,
-            PreconfStructs.TransactionData memory transactionData
+            PreconfStructs.TransactionData memory committedTx
         ) = _recoverCommitmentData(commitment);
 
         // check that the commitment was signed by the expected signer
@@ -134,12 +145,12 @@ contract ExclusionPreconfSlasher is ISlasher {
 
         // Decode the RLP-encoded block header of the target block.
         //
-        // The target block is necessary to extract the transaction root and verify the exclusion of the
-        // committed transactions. By checking against the previous block's parent hash we can ensure this
+        // The target block is necessary to extract the transaction root and verify the inclusion of the
+        // committed transaction. By checking against the previous block's parent hash we can ensure this
         // is the correct block trusting a single block hash.
         PreconfStructs.BlockHeaderData
             memory targetBlockHeader = _decodeBlockHeaderRLP(
-                proof.targetBlockHeaderRLP
+                proof.inclusionBlockHeaderRLP
             );
 
         // Check that the target block is a child of the previous block
@@ -148,17 +159,26 @@ contract ExclusionPreconfSlasher is ISlasher {
         }
 
         // The key in the transaction trie is the RLP-encoded index of the transaction in the block
-        bytes memory txLeaf = RLPWriter.writeUint(proof.txIndexInBlock);
+        bytes memory txLeaf = RLPWriter.writeUint(proof.txIndexesInBlock[0]);
 
-        // Verify transaction exclusion proof
-        bool txExcluded = MerkleTrie.verifyExclusionProof(
+        // Verify transaction inclusion proof
+        //
+        // The transactions trie is built with raw leaves, without hashing them first
+        // (This denotes why we use `MerkleTrie.get()` as opposed to `SecureMerkleTrie.get()`).
+        (bool txExists, bytes memory txRLP) = MerkleTrie.get(
             txLeaf,
-            proof.txMerkleExclusionProof,
+            proof.txMerkleProofs[0],
             targetBlockHeader.txRoot
         );
 
-        if (!txExcluded) {
-            revert TransactionNotExcluded();
+        // Not valid to slash them since the transaction doesn't exist according to the proof
+        if (!txExists) {
+            revert TransactionExcluded();
+        }
+
+        // Check if the committed transaction hash matches the hash of the included transaction
+        if (committedTx.txHash != keccak256(txRLP)) {
+            revert WrongTransactionHashProof();
         }
     }
 
@@ -305,4 +325,3 @@ contract ExclusionPreconfSlasher is ISlasher {
             _getCurrentSlot() + EIP4788_WINDOW;
     }
 }
-

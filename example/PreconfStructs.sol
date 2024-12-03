@@ -30,21 +30,6 @@ contract PreconfStructs {
         uint256 balance;
     }
 
-    struct ExclusionProof {
-        // block number where the transactions were submitted
-        uint256 targetBlockNumber;
-        // RLP-encoded block header of the previous block of the target block
-        // (for clarity: `previousBlockHeader.number == targetBlockNumber - 1`)
-        bytes previousBlockHeaderRLP;
-        // RLP-encoded block header where the committed transactions are included
-        bytes targetBlockHeaderRLP;
-        // Merkle trie inclusion proof for the node *nearest* the excluded node.
-        // (checked against the targetBlockHeader.txRoot)
-        bytes txMerkleExclusionProof;
-        // tx index of the node *nearest* the excluded node
-        uint256 txIndexInBlock;
-    }
-
     struct InclusionProof {
         // block number where the transactions are included
         uint256 inclusionBlockNumber;
