@@ -23,15 +23,14 @@ contract ExclusionPreconfSlasher is ISlasher {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     uint256 public SLASH_AMOUNT_GWEI;
-    address internal constant BEACON_ROOTS_CONTRACT =
+    address public constant BEACON_ROOTS_CONTRACT =
         0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
-    uint256 internal constant EIP4788_WINDOW = 8191;
-    uint256 internal constant JUSTIFICATION_DELAY = 32;
-    uint256 internal constant BLOCKHASH_EVM_LOOKBACK = 256;
-    uint256 internal constant SLOT_TIME = 12;
-    uint256 internal ETH2_GENESIS_TIMESTAMP;
+    uint256 public constant EIP4788_WINDOW = 8191;
+    uint256 public constant JUSTIFICATION_DELAY = 32;
+    uint256 public constant BLOCKHASH_EVM_LOOKBACK = 256;
+    uint256 public constant SLOT_TIME = 12;
+    uint256 public ETH2_GENESIS_TIMESTAMP;
 
-    error NotComittedToThisSlot();
     error BlockIsNotFinalized();
     error InvalidParentBlockHash();
     error UnexpectedSigner();
@@ -61,13 +60,12 @@ contract ExclusionPreconfSlasher is ISlasher {
         ISlasher.Delegation calldata delegation,
         bytes calldata evidence
     ) external returns (uint256 slashAmountGwei) {
-        // Assumes delegation to ECDSA signer as part of the metadata field
-        (address commitmentSigner, uint256 slot) = abi.decode(
-            delegation.metadata,
-            (address, uint256)
-        );
+        // Operator delegated to an ECDSA signer as part of the metadata field
+        address commitmentSigner = abi.decode(delegation.metadata, (address));
 
         // Recover the slashing evidence
+        // commitment: signature to EXCLUDE a tx
+        // proof: MPT inclusion proof
         (
             PreconfStructs.SignedCommitment memory commitment,
             PreconfStructs.InclusionProof memory proof
@@ -75,11 +73,6 @@ contract ExclusionPreconfSlasher is ISlasher {
                 evidence,
                 (PreconfStructs.SignedCommitment, PreconfStructs.InclusionProof)
             );
-
-        // Verify that the slot in the Delegation message matches the slot in the signed commitment
-        if (slot != commitment.slot) {
-            revert NotComittedToThisSlot();
-        }
 
         // If the inclusion proof is valid (doesn't revert) they should be slashed for not excluding the transaction
         _verifyInclusionProof(commitment, proof, commitmentSigner);
@@ -122,7 +115,7 @@ contract ExclusionPreconfSlasher is ISlasher {
 
         // Get the trusted block hash for the block number in which the transactions were included.
         bytes32 trustedPreviousBlockHash = blockhash(
-            proof.inclusionBlockNumber
+            proof.inclusionBlockNumber - 1
         );
 
         // Check the integrity of the trusted block hash
@@ -242,11 +235,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     /// @param headerRLP The RLP-encoded block header to decode
     function _decodeBlockHeaderRLP(
         bytes memory headerRLP
-    )
-        internal
-        pure
-        returns (PreconfStructs.BlockHeaderData memory blockHeader)
-    {
+    ) public pure returns (PreconfStructs.BlockHeaderData memory blockHeader) {
         RLPReader.RLPItem[] memory headerFields = headerRLP
             .toRLPItem()
             .readList();
@@ -264,7 +253,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     /// @return The slot number
     function _getSlotFromTimestamp(
         uint256 _timestamp
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         return (_timestamp - ETH2_GENESIS_TIMESTAMP) / SLOT_TIME;
     }
 
@@ -273,7 +262,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     /// @return The timestamp
     function _getTimestampFromSlot(
         uint256 _slot
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         return ETH2_GENESIS_TIMESTAMP + _slot * SLOT_TIME;
     }
 
@@ -310,7 +299,7 @@ contract ExclusionPreconfSlasher is ISlasher {
 
     /// @notice Get the current slot
     /// @return The current slot
-    function _getCurrentSlot() internal view returns (uint256) {
+    function _getCurrentSlot() public view returns (uint256) {
         return _getSlotFromTimestamp(block.timestamp);
     }
 
