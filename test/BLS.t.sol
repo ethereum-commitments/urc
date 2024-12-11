@@ -82,3 +82,106 @@ contract BLSTest is Test {
         );
     }
 }
+
+contract BLSGasTest is Test {
+    function testG1AddGas() public {
+        BLS.G1Point memory a = BLS.toPublicKey(1234);
+        BLS.G1Point memory b = BLS.toPublicKey(5678);
+        vm.resetGasMetering();
+        BLS.G1Add(a, b);
+    }
+
+    function testG1MulGas() public {
+        BLS.G1Point memory a = BLS.toPublicKey(1234);
+        vm.resetGasMetering();
+        BLS.G1Mul(a, 1234);
+    }
+
+    function testG1MSMGas() public {
+        BLS.G1Point[] memory points = new BLS.G1Point[](2);
+        points[0] = BLS.toPublicKey(1234);
+        points[1] = BLS.toPublicKey(5678);
+        uint256[] memory scalars = new uint256[](2);
+        scalars[0] = 1234;
+        scalars[1] = 5678;
+        vm.resetGasMetering();
+        BLS.G1MSM(points, scalars);
+    }
+
+    function testG2AddGas() public {
+        BLS.G2Point memory g2A = BLS.sign("hello", 1234, "");
+
+        BLS.G2Point memory g2B = BLS.sign("world", 5678, "");
+        vm.resetGasMetering();
+        BLS.G2Add(g2A, g2B);
+    }
+
+    function testG2MulGas() public {
+        BLS.G2Point memory g2A = BLS.sign("hello", 1234, "");
+        vm.resetGasMetering();
+        BLS.G2Mul(g2A, 1234);
+    }
+
+    function testG2MSMGas() public {
+        BLS.G2Point[] memory points = new BLS.G2Point[](2);
+        points[0] = BLS.sign("hello", 1234, "");
+        points[1] = BLS.sign("world", 5678, "");
+        uint256[] memory scalars = new uint256[](2);
+        scalars[0] = 1234;
+        scalars[1] = 5678;
+        vm.resetGasMetering();
+        BLS.G2MSM(points, scalars);
+    }
+
+    function testSinglePairingGas() public {
+        BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
+        g1Points[0] = BLS.toPublicKey(1234);
+        g1Points[1] = BLS.toPublicKey(5678);
+        BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
+        g2Points[0] = BLS.sign("hello", 1234, "");
+        g2Points[1] = BLS.sign("world", 5678, "");
+        vm.resetGasMetering();
+        BLS.Pairing(g1Points, g2Points);
+    }
+
+    function testMapFpToG1Gas() public {
+        BLS.Fp memory fp = BLS.Fp(1234, 5678);
+        vm.resetGasMetering();
+        BLS.MapFpToG1(fp);
+    }
+
+    function testMapFp2ToG2Gas() public {
+        BLS.Fp2 memory fp2 = BLS.Fp2(BLS.Fp(1234, 5678), BLS.Fp(91011, 121314));
+        vm.resetGasMetering();
+        BLS.MapFp2ToG2(fp2);
+    }
+
+    function testHashToCurveG2Gas() public {
+        bytes memory message = "hello";
+        vm.resetGasMetering();
+        BLS.hashToCurveG2(message);
+    }
+
+    function testSigningGas() public {
+        BLS.G2Point memory messagePoint = BLS.toMessagePoint("hello", "domain");
+        vm.resetGasMetering();
+        BLS.G2Mul(messagePoint, 1234);
+    }
+
+    function testVerifyingSingleSignatureGas() public {
+        BLS.G2Point memory messagePoint = BLS.toMessagePoint("hello", "domain");
+        BLS.G1Point memory publicKey = BLS.toPublicKey(1234);
+        BLS.G2Point memory signature = BLS.sign("hello", 1234, "domain");
+
+        vm.resetGasMetering();
+        BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
+        g1Points[0] = BLS.NEGATED_G1_GENERATOR();
+        g1Points[1] = publicKey;
+
+        BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
+        g2Points[0] = signature;
+        g2Points[1] = messagePoint;
+
+        BLS.Pairing(g1Points, g2Points);
+    }
+}
