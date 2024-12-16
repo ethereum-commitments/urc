@@ -182,6 +182,20 @@ contract Registry is IRegistry {
         emit OperatorDeleted(registrationRoot);
     }
 
+    function addCollateral(bytes32 registrationRoot) external payable {
+        Operator storage operator = registrations[registrationRoot];
+        if (operator.collateralGwei == 0) {
+            revert NotRegisteredValidator();
+        }
+
+        if (msg.value / 1 gwei > type(uint56).max) {
+            revert CollateralOverflow();
+        }
+
+        operator.collateralGwei += uint56(msg.value / 1 gwei);
+        emit CollateralAdded(registrationRoot, operator.collateralGwei);
+    }
+
     // Internal functions
 
     function _merkleizeRegistrations(Registration[] calldata regs) internal returns (bytes32 registrationRoot) {

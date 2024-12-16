@@ -36,6 +36,7 @@ interface IRegistry {
     event OperatorDeleted(bytes32 registrationRoot);
     event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point validatorPubKey);
     event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
+    event CollateralAdded(bytes32 registrationRoot, uint256 collateralGwei);
 
     // Errors
     error InsufficientCollateral();
@@ -56,6 +57,7 @@ interface IRegistry {
     error NotRegisteredValidator();
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
+    error CollateralOverflow();
 
     function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
         external
@@ -77,6 +79,8 @@ interface IRegistry {
     function unregister(bytes32 registrationRoot) external;
 
     function claimCollateral(bytes32 registrationRoot) external;
+
+    function addCollateral(bytes32 registrationRoot) external payable;
 
     function slashCommitment(
         bytes32 registrationRoot,

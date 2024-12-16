@@ -556,4 +556,49 @@ contract RegistryTest is UnitTestHelper {
         vm.expectRevert(IRegistry.NotUnregistered.selector);
         registry.claimCollateral(registrationRoot);
     }
+
+    function test_addCollateral(uint56 addAmount) public {
+        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        vm.assume((addAmount + collateral) / 1 gwei < uint256(2 ** 56));
+
+        IRegistry.Registration[] memory registrations =
+            _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
+
+        bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
+
+        uint256 expectedCollateralGwei = (collateral + addAmount) / 1 gwei;
+        vm.deal(alice, addAmount);
+        vm.prank(alice);
+
+        vm.expectEmit(address(registry));
+        emit IRegistry.CollateralAdded(registrationRoot, expectedCollateralGwei);
+        registry.addCollateral{ value: addAmount }(registrationRoot);
+
+        (, uint56 collateralGwei,,,) = registry.registrations(registrationRoot);
+        assertEq(collateralGwei, expectedCollateralGwei, "Collateral not added");
+    }
+
+    function test_addCollateral_overflow() public {
+        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        IRegistry.Registration[] memory registrations =
+            _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
+
+        bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
+
+        uint256 addAmount = 2 ** 56 * 1 gwei; // overflow uint56
+        vm.deal(alice, addAmount);
+        vm.prank(alice);
+
+        vm.expectRevert(IRegistry.CollateralOverflow.selector);
+        registry.addCollateral{ value: addAmount }(registrationRoot);
+
+        (, uint56 collateralGwei,,,) = registry.registrations(registrationRoot);
+        assertEq(collateralGwei, uint56(collateral / 1 gwei), "Collateral should not be changed");
+    }
+
+    function test_addCollateral_notRegistered() public {
+        bytes32 registrationRoot = bytes32(uint256(0));
+        vm.expectRevert(IRegistry.NotRegisteredValidator.selector);
+        registry.addCollateral{ value: 1 gwei }(registrationRoot);
+    }
 }
