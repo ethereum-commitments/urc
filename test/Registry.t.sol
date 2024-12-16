@@ -444,6 +444,8 @@ contract RegistryTest is UnitTestHelper {
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
 
         vm.prank(alice);
+        vm.expectEmit(address(registry));
+        emit IRegistry.OperatorUnregistered(registrationRoot, uint32(block.number));
         registry.unregister(registrationRoot);
 
         (,, uint32 registeredAt, uint32 unregisteredAt,) = registry.registrations(registrationRoot);
@@ -496,6 +498,8 @@ contract RegistryTest is UnitTestHelper {
         uint256 balanceBefore = alice.balance;
 
         vm.prank(alice);
+        vm.expectEmit(address(registry));
+        emit IRegistry.CollateralClaimed(registrationRoot, uint256(collateral / 1 gwei));
         registry.claimCollateral(registrationRoot);
 
         assertEq(alice.balance, balanceBefore + collateral, "Collateral not returned");
