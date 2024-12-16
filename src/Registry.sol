@@ -67,6 +67,7 @@ contract Registry is IRegistry {
         uint256 leafIndex
     ) external returns (uint256 slashedCollateralWei) {
         Operator storage operator = registrations[registrationRoot];
+        address operatorWithdrawalAddress = operator.withdrawalAddress;
 
         if (block.number > operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowExpired();
@@ -79,31 +80,33 @@ contract Registry is IRegistry {
         }
 
         // Reconstruct registration message
-        bytes memory message = abi.encodePacked(operator.withdrawalAddress, operator.unregistrationDelay);
+        bytes memory message = abi.encodePacked(operatorWithdrawalAddress, operator.unregistrationDelay);
 
         // Verify registration signature
         if (BLS.verify(message, reg.signature, reg.pubkey, DOMAIN_SEPARATOR)) {
             revert FraudProofChallengeInvalid();
         }
-        emit RegistrationSlashed(registrationRoot, msg.sender, operator.withdrawalAddress, reg);
+
+        // Delete the operator
+        delete registrations[registrationRoot];
+
+        // Calculate the amount to transfer to challenger and return to operator
+        slashedCollateralWei = MIN_COLLATERAL;
+        uint256 remainingWei = uint256(collateralGwei) * 1 gwei - slashedCollateralWei;
 
         // Transfer to the challenger
-        slashedCollateralWei = MIN_COLLATERAL;
-        (bool success,) = msg.sender.call{ value: slashedCollateralWei }(""); // todo reentrancy
+        (bool success,) = msg.sender.call{ value: slashedCollateralWei }("");
         if (!success) {
             revert EthTransferFailed();
         }
 
         // Return any remaining funds to Operator
-        uint256 remainingWei = uint256(operator.collateralGwei) * 1 gwei - slashedCollateralWei;
-        (success,) = operator.withdrawalAddress.call{ value: remainingWei }(""); // todo reentrancy
+        (success,) = operatorWithdrawalAddress.call{ value: remainingWei }("");
         if (!success) {
             revert EthTransferFailed();
         }
 
-        // Delete the operator
-        delete registrations[registrationRoot];
-        emit OperatorDeleted(registrationRoot);
+        emit RegistrationSlashed(registrationRoot, msg.sender, operatorWithdrawalAddress, reg);
     }
 
     function unregister(bytes32 registrationRoot) external {
@@ -126,6 +129,8 @@ contract Registry is IRegistry {
 
     function claimCollateral(bytes32 registrationRoot) external {
         Operator storage operator = registrations[registrationRoot];
+        address operatorWithdrawalAddress = operator.withdrawalAddress;
+        uint256 collateralGwei = operator.collateralGwei;
 
         // Check that they've unregistered
         if (operator.unregisteredAt == 0) {
@@ -138,20 +143,22 @@ contract Registry is IRegistry {
         }
 
         // Check there's collateral to claim
-        if (operator.collateralGwei == 0) {
+        if (collateralGwei == 0) {
             revert NoCollateralToClaim();
         }
 
-        uint256 amountToReturn = uint256(operator.collateralGwei) * 1 gwei;
-
-        // TODO safe transfer for rentrancy
-        (bool success,) = operator.withdrawalAddress.call{ value: amountToReturn }("");
-        require(success, "Transfer failed");
-
-        emit OperatorDeleted(registrationRoot);
+        uint256 amountToReturn = collateralGwei * 1 gwei;
 
         // Clear operator info
         delete registrations[registrationRoot];
+
+        // Transfer to operator
+        (bool success,) = operatorWithdrawalAddress.call{ value: amountToReturn }("");
+        if (!success) {
+            revert EthTransferFailed();
+        }
+
+        emit CollateralClaimed(registrationRoot, collateralGwei);
     }
 
     function slashCommitment(
@@ -163,6 +170,7 @@ contract Registry is IRegistry {
         bytes calldata evidence
     ) external returns (uint256 slashAmountGwei) {
         Operator storage operator = registrations[registrationRoot];
+        address operatorWithdrawalAddress = operator.withdrawalAddress;
 
         if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowNotMet();
@@ -173,13 +181,13 @@ contract Registry is IRegistry {
 
         slashAmountGwei = _executeSlash(signedDelegation, evidence, collateralGwei);
 
-        _distributeSlashedFunds(operator, collateralGwei, slashAmountGwei);
-
-        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.validatorPubKey);
-
         // Delete the operator
         delete registrations[registrationRoot];
-        emit OperatorDeleted(registrationRoot);
+
+        // Distribute slashed funds
+        _distributeSlashedFunds(operatorWithdrawalAddress, collateralGwei, slashAmountGwei);
+
+        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.validatorPubKey);
     }
 
     function addCollateral(bytes32 registrationRoot) external payable {
@@ -268,7 +276,7 @@ contract Registry is IRegistry {
         }
     }
 
-    function _distributeSlashedFunds(Operator storage operator, uint256 collateralGwei, uint256 slashAmountGwei)
+    function _distributeSlashedFunds(address withdrawalAddress, uint256 collateralGwei, uint256 slashAmountGwei)
         internal
     {
         // Transfer to the slasher
@@ -278,7 +286,7 @@ contract Registry is IRegistry {
         }
 
         // Return any remaining funds to Operator
-        (success,) = operator.withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei) * 1 gwei }("");
+        (success,) = withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei) * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }

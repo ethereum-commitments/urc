@@ -29,13 +29,13 @@ interface IRegistry {
 
     // Events
     event OperatorRegistered(bytes32 registrationRoot, uint256 collateral, uint16 unregistrationDelay);
-    event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
+    event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
     event RegistrationSlashed(
         bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg
     );
-    event OperatorDeleted(bytes32 registrationRoot);
     event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point validatorPubKey);
-    event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
+    event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
+    event CollateralClaimed(bytes32 registrationRoot, uint256 collateralGwei);
     event CollateralAdded(bytes32 registrationRoot, uint256 collateralGwei);
 
     // Errors

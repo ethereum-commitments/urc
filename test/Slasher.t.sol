@@ -75,7 +75,6 @@ contract DummySlasherTest is UnitTestHelper {
         emit IRegistry.OperatorSlashed(
             result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.validatorPubKey
         );
-        emit IRegistry.OperatorDeleted(result.registrationRoot);
         uint256 gotSlashAmountGwei = registry.slashCommitment(
             result.registrationRoot,
             result.registrations[leafIndex].signature,
