@@ -271,9 +271,7 @@ contract Registry is IRegistry {
         bytes memory domainSeparator = ISlasher(signedDelegation.delegation.slasher).DOMAIN_SEPARATOR();
 
         if (
-            !BLS.verify(
-                message, signedDelegation.signature, signedDelegation.delegation.proposerPubKey, domainSeparator
-            )
+            !BLS.verify(message, signedDelegation.signature, signedDelegation.delegation.proposerPubKey, domainSeparator)
         ) {
             revert DelegationSignatureInvalid();
         }
@@ -314,9 +312,7 @@ contract Registry is IRegistry {
     /// @notice Get the slot number from a given timestamp. Assumes 12 second slot time.
     /// @param _timestamp The timestamp
     /// @return The slot number
-    function _getSlotFromTimestamp(
-        uint256 _timestamp
-    ) public view returns (uint256) {
+    function _getSlotFromTimestamp(uint256 _timestamp) public view returns (uint256) {
         return (_timestamp - ETH2_GENESIS_TIMESTAMP) / 12;
     }
 }
