@@ -60,5 +60,5 @@ In the current implementation, proposers commit to an arbitrary contract address
 This approach has the following benefits:
 - Each `Slasher` contract only needs to be deployed once and can be verified on-chain.
 - Arbitrary stateful logic can be executed on the `Slasher`. (e.g., a fraud proof game is played ahead of time and then calling `slash(bytes inputs)` returns the slashing outcome)
-- Supports arbitarily complex slashing logic, even existing restaking protocols
+- Supports arbitrarily complex slashing logic, even existing restaking protocols
 - Can support the execution of arbitrary bytecode by deploying a dedicated `Slasher` contract 

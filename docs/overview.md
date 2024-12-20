@@ -78,10 +78,10 @@ The operator supplies at least `MIN_COLLATERAL` Ether to the contract and batch 
         /// ETH collateral in GWEI
         uint56 collateral;
 
-        /// The block number when registration occured
+        /// The block number when registration occurred
         uint32 registeredAt;
 
-        /// The block number when deregistration occured
+        /// The block number when deregistration occurred
         uint32 unregisteredAt;
 
         /// The number of blocks that must elapse between deregistering and claiming

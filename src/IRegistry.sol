@@ -19,9 +19,9 @@ interface IRegistry {
         address withdrawalAddress;
         /// ETH collateral in GWEI
         uint56 collateralGwei;
-        /// The block number when registration occured
+        /// The block number when registration occurred
         uint32 registeredAt;
-        /// The block number when deregistration occured
+        /// The block number when deregistration occurred
         uint32 unregisteredAt;
         /// The number of blocks that must elapse between deregistering and claiming
         uint16 unregistrationDelay;
