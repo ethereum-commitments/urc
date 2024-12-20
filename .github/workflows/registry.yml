@@ -26,6 +26,7 @@ jobs:
             check_filenames: true
   tests:
     runs-on: ubuntu-latest
+    environment: CI
     steps:
       - name: Cancel previous actions
         uses: styfle/cancel-workflow-action@0.12.1
