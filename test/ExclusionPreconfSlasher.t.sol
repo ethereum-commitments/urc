@@ -112,7 +112,8 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(slasher),
             domainSeparator: slasher.DOMAIN_SEPARATOR(),
-            metadata: metadata
+            metadata: metadata,
+            validUntil: uint64(UINT256_MAX)
         });
 
         // Register operator to URC and signs delegation message

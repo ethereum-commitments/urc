@@ -8,6 +8,7 @@ interface ISlasher {
         BLS.G1Point proposerPubKey;
         BLS.G1Point delegatePubKey;
         address slasher;
+        uint64 validUntil;
         bytes metadata;
     }
 

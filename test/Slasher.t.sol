@@ -51,7 +51,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -105,7 +106,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -138,7 +140,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -166,7 +169,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -203,7 +207,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -237,7 +242,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -273,7 +279,8 @@ contract DummySlasherTest is UnitTestHelper {
             delegateSecretKey: SECRET_KEY_2,
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
-            metadata: ""
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);

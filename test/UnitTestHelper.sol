@@ -143,6 +143,7 @@ contract UnitTestHelper is Test {
         address slasher;
         bytes domainSeparator;
         bytes metadata;
+        uint64 validUntil;
     }
 
     struct RegisterAndDelegateResult {
@@ -164,6 +165,7 @@ contract UnitTestHelper is Test {
             proposerPubKey: BLS.toPublicKey(params.proposerSecretKey),
             delegatePubKey: BLS.toPublicKey(params.delegateSecretKey),
             slasher: params.slasher,
+            validUntil: params.validUntil,
             metadata: params.metadata
         });
 
