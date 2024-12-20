@@ -33,7 +33,7 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
     uint256 collateral = 1 ether;
 
     function setUp() public {
-        vm.chainId(1);
+        vm.createSelectFork(vm.rpcUrl("mainnet"));
         slasher = new ExclusionPreconfSlasher(slashAmountGwei);
         registry = new Registry();
         delegatePubKey = BLS.toPublicKey(SECRET_KEY_2);
