@@ -106,7 +106,7 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
 
         // Register operator to URC
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: operator,
             delegateSecretKey: SECRET_KEY_2,

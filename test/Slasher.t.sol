@@ -45,7 +45,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(slashAmountGwei);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -73,7 +73,7 @@ contract DummySlasherTest is UnitTestHelper {
         vm.prank(bob);
         vm.expectEmit(address(registry));
         emit IRegistry.OperatorSlashed(
-            result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.validatorPubKey
+            result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.proposerPubKey
         );
         uint256 gotSlashAmountGwei = registry.slashCommitment(
             result.registrationRoot,
@@ -99,7 +99,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(slashAmountGwei);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -132,7 +132,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(slashAmountGwei);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -160,7 +160,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(slashAmountGwei);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -197,7 +197,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(0);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -231,7 +231,7 @@ contract DummySlasherTest is UnitTestHelper {
         dummySlasher = new DummySlasher(excessiveSlashAmount);
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: alice,
             delegateSecretKey: SECRET_KEY_2,
@@ -267,7 +267,7 @@ contract DummySlasherTest is UnitTestHelper {
         RejectEther rejectEther = new RejectEther();
 
         RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
-            validatorSecretKey: SECRET_KEY_1,
+            proposerSecretKey: SECRET_KEY_1,
             collateral: collateral,
             withdrawalAddress: address(rejectEther),
             delegateSecretKey: SECRET_KEY_2,

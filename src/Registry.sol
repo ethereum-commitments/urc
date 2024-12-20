@@ -187,7 +187,7 @@ contract Registry is IRegistry {
         // Distribute slashed funds
         _distributeSlashedFunds(operatorWithdrawalAddress, collateralGwei, slashAmountGwei);
 
-        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.validatorPubKey);
+        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.proposerPubKey);
     }
 
     function addCollateral(bytes32 registrationRoot) external payable {
@@ -237,7 +237,7 @@ contract Registry is IRegistry {
         ISlasher.SignedDelegation calldata signedDelegation
     ) internal view returns (uint256 collateralGwei) {
         // Reconstruct Leaf using pubkey in SignedDelegation to check equivalence
-        bytes32 leaf = keccak256(abi.encode(signedDelegation.delegation.validatorPubKey, registrationSignature));
+        bytes32 leaf = keccak256(abi.encode(signedDelegation.delegation.proposerPubKey, registrationSignature));
 
         collateralGwei = _verifyMerkleProof(registrationRoot, leaf, proof, leafIndex);
 
@@ -253,7 +253,7 @@ contract Registry is IRegistry {
 
         if (
             !BLS.verify(
-                message, signedDelegation.signature, signedDelegation.delegation.validatorPubKey, domainSeparator
+                message, signedDelegation.signature, signedDelegation.delegation.proposerPubKey, domainSeparator
             )
         ) {
             revert DelegationSignatureInvalid();

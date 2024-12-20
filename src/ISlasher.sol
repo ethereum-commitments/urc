@@ -5,7 +5,7 @@ import { BLS } from "./lib/BLS.sol";
 
 interface ISlasher {
     struct Delegation {
-        BLS.G1Point validatorPubKey;
+        BLS.G1Point proposerPubKey;
         BLS.G1Point delegatePubKey;
         address slasher;
         bytes metadata;
