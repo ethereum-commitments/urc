@@ -7,12 +7,10 @@ fs_permissions = [{ access = "read", path = "./" }]
 auto_detect_solc = false
 optimizer = true
 optimizer_runs = 200
-evm_version = "cancun" # is live on mainnet
+evm_version = "prague" # for testing bls precompiles
 seed = "0x1337"
 solc = "0.8.25"
 # via_ir = true
-
-alphanet = true # for testing bls precompiles
 
 [fmt]
 line_length = 120
