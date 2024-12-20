@@ -301,6 +301,43 @@ contract DummySlasherTest is UnitTestHelper {
             ""
         );
     }
+
+    function testRevertDelegationExpired() public {
+        uint256 slashAmountGwei = 42;
+        dummySlasher = new DummySlasher(slashAmountGwei);
+
+        RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
+            proposerSecretKey: SECRET_KEY_1,
+            collateral: collateral,
+            withdrawalAddress: alice,
+            delegateSecretKey: SECRET_KEY_2,
+            slasher: address(dummySlasher),
+            domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
+            metadata: "",
+            // validUntil: uint64(block.timestamp - 1) // Delegation expired
+            validUntil: 0
+        });
+
+        RegisterAndDelegateResult memory result = registerAndDelegate(params);
+
+        vm.roll(block.timestamp + registry.FRAUD_PROOF_WINDOW() + 1);
+        vm.warp(block.number * 12);
+
+        bytes32[] memory leaves = _hashToLeaves(result.registrations);
+        uint256 leafIndex = 0;
+        bytes32[] memory proof = MerkleTree.generateProof(leaves, leafIndex);
+
+        vm.prank(bob);
+        vm.expectRevert(IRegistry.DelegationExpired.selector);
+        registry.slashCommitment(
+            result.registrationRoot,
+            result.registrations[leafIndex].signature,
+            proof,
+            leafIndex,
+            result.signedDelegation,
+            ""
+        );
+    }
 }
 
 // Helper contract that rejects ETH transfers

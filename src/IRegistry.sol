@@ -58,6 +58,7 @@ interface IRegistry {
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
+    error DelegationExpired();
 
     function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
         external
