@@ -602,7 +602,7 @@ contract RegistryTest is UnitTestHelper {
 
     function test_addCollateral_notRegistered() public {
         bytes32 registrationRoot = bytes32(uint256(0));
-        vm.expectRevert(IRegistry.NotRegisteredValidator.selector);
+        vm.expectRevert(IRegistry.NotRegisteredKey.selector);
         registry.addCollateral{ value: 1 gwei }(registrationRoot);
     }
 }

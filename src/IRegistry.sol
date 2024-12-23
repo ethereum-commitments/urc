@@ -5,17 +5,25 @@ import { BLS } from "./lib/BLS.sol";
 import { ISlasher } from "./ISlasher.sol";
 
 interface IRegistry {
-    // Structs
+    /**
+     *
+     *                                *
+     *            STRUCTS             *
+     *                                *
+     *
+     */
 
+    /// @notice A registration of a BLS key
     struct Registration {
-        /// Validator BLS public key
+        /// BLS public key
         BLS.G1Point pubkey;
-        /// Validator BLS signature
+        /// BLS signature
         BLS.G2Point signature;
     }
 
+    /// @notice An operator of BLS key[s]
     struct Operator {
-        /// The address used to deregister validators and claim collateral
+        /// The address used to deregister from the registry and claim collateral
         address withdrawalAddress;
         /// ETH collateral in GWEI
         uint56 collateralGwei;
@@ -27,18 +35,62 @@ interface IRegistry {
         uint16 unregistrationDelay;
     }
 
-    // Events
+    /**
+     *
+     *                                *
+     *            EVENTS              *
+     *                                *
+     *
+     */
+    /// @notice Emitted when an operator is registered
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param collateral The collateral amount in GWEI
+    /// @param unregistrationDelay The delay before the operator can claim collateral after registering
     event OperatorRegistered(bytes32 registrationRoot, uint256 collateral, uint16 unregistrationDelay);
-    event ValidatorRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
+
+    /// @notice Emitted when a BLS key is registered
+    /// @param leafIndex The index of the BLS key in the registration merkle tree
+    /// @param reg The registration
+    /// @param leaf The leaf hash value of the `Registration`
+    event KeyRegistered(uint256 leafIndex, Registration reg, bytes32 leaf);
+
+    /// @notice Emitted when an operator is slashed for a fraudulent registration
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param challenger The address of the challenger
+    /// @param withdrawalAddress The withdrawal address of the operator
+    /// @param reg The fraudulent registration
     event RegistrationSlashed(
         bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg
     );
-    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point validatorPubKey);
+
+    /// @notice Emitted when an operator is slashed for breaking a commitment
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param slashAmountGwei The amount of GWEI slashed
+    /// @param pubkey The BLS public key of the operator
+    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point pubkey);
+
+    /// @notice Emitted when an operator is unregistered
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param unregisteredAt The block number when the operator was unregistered
     event OperatorUnregistered(bytes32 registrationRoot, uint32 unregisteredAt);
+
+    /// @notice Emitted when collateral is claimed
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param collateralGwei The amount of GWEI claimed
     event CollateralClaimed(bytes32 registrationRoot, uint256 collateralGwei);
+
+    /// @notice Emitted when collateral is added
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param collateralGwei The amount of GWEI added
     event CollateralAdded(bytes32 registrationRoot, uint256 collateralGwei);
 
-    // Errors
+    /**
+     *
+     *                                *
+     *            ERRORS              *
+     *                                *
+     *
+     */
     error InsufficientCollateral();
     error UnregistrationDelayTooShort();
     error OperatorAlreadyRegistered();
@@ -54,12 +106,19 @@ interface IRegistry {
     error DelegationSignatureInvalid();
     error SlashAmountExceedsCollateral();
     error NoCollateralSlashed();
-    error NotRegisteredValidator();
+    error NotRegisteredKey();
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
     error DelegationExpired();
 
+    /**
+     *
+     *                                *
+     *            FUNCTIONS           *
+     *                                *
+     *
+     */
     function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
         external
         payable

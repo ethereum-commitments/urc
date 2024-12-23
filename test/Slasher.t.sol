@@ -152,7 +152,7 @@ contract DummySlasherTest is UnitTestHelper {
 
         vm.roll(block.timestamp + registry.FRAUD_PROOF_WINDOW() + 1);
 
-        vm.expectRevert(IRegistry.NotRegisteredValidator.selector);
+        vm.expectRevert(IRegistry.NotRegisteredKey.selector);
         registry.slashCommitment(
             result.registrationRoot, result.registrations[0].signature, invalidProof, 0, result.signedDelegation, ""
         );
