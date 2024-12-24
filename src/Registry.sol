@@ -68,7 +68,7 @@ contract Registry is IRegistry {
             collateralGwei: uint56(msg.value / 1 gwei),
             registeredAt: uint32(block.number),
             unregistrationDelay: unregistrationDelay,
-            unregisteredAt: 0
+            unregisteredAt: type(uint32).max
         });
 
         emit OperatorRegistered(registrationRoot, msg.value, unregistrationDelay);
@@ -159,7 +159,7 @@ contract Registry is IRegistry {
         }
 
         // Check that they haven't already unregistered
-        if (operator.unregisteredAt != 0) {
+        if (operator.unregisteredAt != type(uint32).max) {
             revert AlreadyUnregistered();
         }
 
@@ -179,7 +179,7 @@ contract Registry is IRegistry {
         uint256 collateralGwei = operator.collateralGwei;
 
         // Check that they've unregistered
-        if (operator.unregisteredAt == 0) {
+        if (operator.unregisteredAt == type(uint32).max) {
             revert NotUnregistered();
         }
 
@@ -210,7 +210,7 @@ contract Registry is IRegistry {
     /// @notice Slashes an operator for breaking a commitment
     /// @dev The function verifies `proof` to first ensure the operator's key is in the registry, then verifies the `signedDelegation` was signed by the key. If the fraud proof window has passed, the URC will call the `slash()` function of the Slasher contract specified in the `signedDelegation`. The Slasher contract will determine if the operator has broken a commitment and return the amount of GWEI to be slashed at the URC.
     /// @dev The function will delete the operator's registration, transfer `slashAmountGwei` to the caller, and return any remaining funds to the operator's withdrawal address.
-    /// @dev The function will revert if the operator has not registered, if the fraud proof window has not passed, or if the proof is invalid.
+    /// @dev The function will revert if the operator has not registered, if the fraud proof window has not passed, if the operator has already unregistered, or if the proof is invalid.
     /// @param registrationRoot The merkle root generated and stored from the register() function
     /// @param registrationSignature The signature from the operator's previously registered `Registration`
     /// @param proof The merkle proof to verify the operator's key is in the registry
@@ -231,6 +231,13 @@ contract Registry is IRegistry {
 
         if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowNotMet();
+        }
+
+        if (
+            operator.unregisteredAt != type(uint32).max
+                && block.number > operator.unregisteredAt + operator.unregistrationDelay
+        ) {
+            revert OperatorAlreadyUnregistered();
         }
 
         uint256 collateralGwei =

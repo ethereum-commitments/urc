@@ -61,7 +61,12 @@ contract RegistryTest is UnitTestHelper {
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
         );
 
         // Attempt duplicate registration
@@ -79,7 +84,12 @@ contract RegistryTest is UnitTestHelper {
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
         );
 
         // generate merkle proof
@@ -111,7 +121,12 @@ contract RegistryTest is UnitTestHelper {
         );
 
         _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay + 1
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay + 1
         );
 
         // generate merkle proof
@@ -155,7 +170,7 @@ contract RegistryTest is UnitTestHelper {
             bob, // confirm bob's address is what was registered
             uint56(collateral / 1 gwei),
             uint32(block.number),
-            0,
+            type(uint32).max,
             unregistrationDelay
         );
 
@@ -196,7 +211,12 @@ contract RegistryTest is UnitTestHelper {
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
         );
 
         bytes32[] memory leaves = _hashToLeaves(registrations);
@@ -237,7 +257,7 @@ contract RegistryTest is UnitTestHelper {
             alice,
             uint56(collateral / 1 gwei),
             uint32(block.number),
-            0,
+            type(uint32).max,
             unregistrationDelay + 1 // confirm different delay
         );
 
@@ -273,7 +293,12 @@ contract RegistryTest is UnitTestHelper {
 
         // Verify initial registration state
         _assertRegistration(
-            registrationRoot, bob, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
+            registrationRoot,
+            bob,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
         );
 
         // Create proof for alice's registration
@@ -307,7 +332,12 @@ contract RegistryTest is UnitTestHelper {
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
-            registrationRoot, alice, uint56(collateral / 1 gwei), uint32(block.number), 0, unregistrationDelay
+            registrationRoot,
+            alice,
+            uint56(collateral / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
         );
 
         bytes32[] memory leaves = _hashToLeaves(registrations);
@@ -557,7 +587,7 @@ contract RegistryTest is UnitTestHelper {
 
         // Try to claim again
         vm.prank(alice);
-        vm.expectRevert(IRegistry.NotUnregistered.selector);
+        vm.expectRevert(IRegistry.NoCollateralToClaim.selector);
         registry.claimCollateral(registrationRoot);
     }
 

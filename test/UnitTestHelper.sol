@@ -121,7 +121,7 @@ contract UnitTestHelper is Test {
             withdrawalAddress,
             uint56(collateral / 1 gwei),
             uint32(block.number),
-            0,
+            type(uint32).max,
             unregistrationDelay
         );
     }

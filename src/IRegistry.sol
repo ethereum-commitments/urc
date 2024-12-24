@@ -66,7 +66,7 @@ interface IRegistry {
     /// @notice Emitted when an operator is slashed for breaking a commitment
     /// @param registrationRoot The merkle root of the registration merkle tree
     /// @param slashAmountGwei The amount of GWEI slashed
-    /// @param pubkey The BLS public key of the operator
+    /// @param pubkey The BLS public key
     event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point pubkey);
 
     /// @notice Emitted when an operator is unregistered
@@ -111,7 +111,7 @@ interface IRegistry {
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
     error DelegationExpired();
-
+    error OperatorAlreadyUnregistered();
     /**
      *
      *                                *
@@ -119,6 +119,7 @@ interface IRegistry {
      *                                *
      *
      */
+
     function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
         external
         payable
