@@ -9,6 +9,36 @@
 - [ ] ERC
 - [ ] Audit
 
+
+## Overview
+```mermaid
+sequenceDiagram
+autonumber
+    participant Operator
+    participant URC
+    participant Protocol
+    participant Challenger
+    participant Slasher
+
+    Operator->>URC: register(...)
+    alt Happy path 
+        Operator->>Protocol: sign Delegation messages
+        Operator->>Protocol: perform commitments
+        Operator->>URC: unregister()
+        Operator->>Operator: wait for unregistrationDelay
+        note over Operator,Protocol: Commitments no longer enforced
+        Operator->>URC: claimCollateral()
+    else Fraudulent Registration
+        Challenger->>URC: slashRegistration(...)
+    else Broken Commitment
+        Operator->>Protocol: sign Delegation messages
+        Operator->>Protocol: break commitment
+        Challenger->>URC: slashCommitment(...)
+        URC->>Slasher: slash(...)
+        Slasher->>URC: slashAmountGwei
+    end
+```
+
 ## Schemas
 The message signed by an operator's BLS key and supplied to the URC's `register()` function.
 ```Solidity
@@ -157,7 +187,87 @@ autonumber
 ```
 
 ## Deregistration Process
-todo
+Exiting the URC is a two-step process. First, the operator must call `unregister()`, which marks the `unregisteredAt` timestamp in the `Operator` struct. After the operator's `unregistrationDelay` has passed, they can call `claimCollateral()`, which will transfer the operator's collateral to their registered `withdrawalAddress`.
+
+```mermaid
+sequenceDiagram
+autonumber
+    participant Operator
+    participant URC
+
+    Operator->>URC: unregister(...)
+    URC->>URC: check caller is withdrawalAddress
+    URC->>URC: check unregisteredAt is not set
+    URC->>URC: set unregisteredAt
+    URC->>Operator: emit OperatorUnregistered(...)
+    Operator->>Operator: wait for unregistrationDelay blocks
+    Operator->>URC: claimCollateral(...)
+    URC->>URC: check unregisteredAt is set
+    URC->>URC: check unregistrationDelay has passed
+    URC->>URC: check collateralGwei > 0
+    URC->>URC: transfer collateral to withdrawalAddress
+    URC->>URC: delete Operator from registrations mapping
+    URC->>Operator: emit CollateralClaimed(...)
+```
 
 ## Slashing Process
-todo
+The URC supports two types of slashing:
+
+1. Registration Fraud - When an operator submits invalid BLS signatures during registration [described above](#slashregistration)
+2. Commitment Breaking - When an operator breaks a commitment defined by a Slasher contract
+
+### Commitment Breaking Process
+Operators are expected to sign `Delegation` messages with their registered BLS keys, which commit them to a protocol-defined `Slasher` contract. If the operator breaks their commitment, a challenger can supply evidence and call `slashCommitment()` on the URC. This will call the `Slasher` contract's `slash()` function, which informs the URC of the amount of collateral to be slashed.
+
+```mermaid
+sequenceDiagram
+    participant Challenger
+    participant URC
+    participant Slasher
+    participant Operator
+
+    Challenger->>URC: slashCommitment(...)
+    URC->>URC: Verify fraud window has passed
+    URC->>URC: Verify operator hasn't unregistered
+    URC->>URC: Verify merkle proof of registration
+    URC->>URC: Verify delegation signature
+    URC->>URC: Check delegation hasn't expired
+    URC->>Slasher: slash(delegation, evidence)
+    Slasher-->>Slasher: Execute protocol-defined slashing logic
+    Slasher-->>URC: Return slashAmountGwei
+    URC->>URC: Delete operator registration
+    URC->>Challenger: Transfer slashAmountGwei
+    URC->>Operator: Return remaining collateral
+```
+
+The slashing process follows these steps:
+
+1. A challenger calls `slashCommitment()` with:
+   - `registrationRoot`: The merkle root of the operator's registration
+   - `registrationSignature`: The BLS signature from registration
+   - `proof`: Merkle proof showing the key is registered
+   - `signedDelegation`: The delegation message signed by the operator
+   - `evidence`: Proof that the operator broke their commitment
+
+2. The URC performs several validations:
+   - Verifies the fraud proof window has passed
+   - Checks the operator hasn't already unregistered and their unregistration delay elapsed
+   - Verifies the merkle proof to confirm key registration
+   - Verifies the delegation signature using the operator's BLS key
+   - Checks the delegation hasn't expired
+
+3. If validations pass, the URC:
+   - Calls the Slasher contract's `slash()` function with the delegation and evidence
+   - Receives back the amount to slash (`slashAmountGwei`)
+   - Deletes the operator's registration
+   - Transfers `slashAmountGwei` to the challenger
+   - Returns any remaining collateral to the operator's withdrawal address
+
+The process will revert if:
+- The operator is not registered
+- The fraud proof window hasn't passed
+- The operator has already unregistered
+- The merkle proof is invalid
+- The delegation signature is invalid
+- The delegation has expired
+- The slash amount is 0 or exceeds the operator's collateral
