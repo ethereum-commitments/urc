@@ -1,8 +1,8 @@
 # Universal Registry Contract
 
 The URC is a universal contract for… 
-- Ethereum validators to **register** for proposer commitments
-- anyone to **slash** validators that break commitments
+- anyone to **register** for proposer commitments
+- anyone to **slash** proposers that break commitments
 
 it should…
 - be governance-free and immutable
