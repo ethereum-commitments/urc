@@ -1,3 +1,8 @@
+# ToDo
+- Add the ability to delegate stake on behalf of a validator
+- Add the ability to slash a given validators restake given a challenge
+- Make registering validator collateral (32eth) optional
+
 # Universal Registry Contract
 
 The URC is a universal contract for… 
