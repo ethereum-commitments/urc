@@ -1,7 +1,7 @@
 # ToDo
 - Add the ability to delegate stake on behalf of a validator
 - Add the ability to slash a given validators restake given a challenge
-- Make registering validator collateral (32eth) optional
+- Remove the need to register validator collateral (Or make it optional)
 
 # Universal Registry Contract
 
