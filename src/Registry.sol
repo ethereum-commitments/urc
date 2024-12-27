@@ -1,3 +1,6 @@
+// ToDo: add the parameters here
+// Also add manager logic here
+
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
