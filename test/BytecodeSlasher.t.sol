@@ -4,18 +4,18 @@ pragma solidity >=0.8.0 <0.9.0;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { BLS } from "../src/lib/BLS.sol";
-import { BytecodeSlasher, DummySlasher } from "../src/BytecodeSlasher.sol";
+import { Slasher, DummySlasher } from "../src/Slasher.sol";
 
 contract BytecodeSlasherTest is Test {
     event BytecodeExecuted(bytes bytecode, bool success);
 
     error ExecutionFailed();
 
-    BytecodeSlasher public bytecodeSlasher;
+    Slasher public bytecodeSlasher;
     DummySlasher dummySlasher;
 
     function setUp() public {
-        bytecodeSlasher = new BytecodeSlasher();
+        bytecodeSlasher = new Slasher();
     }
 
     function testDummySlasher() public {
