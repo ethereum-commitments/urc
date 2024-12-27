@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
+// ToDo: Add the ability for a preconfirmation receiver to issue a challenge to to the preconfirmation provider. This can be either the gateway or the proposer.
+// The return data given to the preconfirmation requester should have all the data necessary to initiate a slash
+// This contract should contain all the data necessary to issue a challenge to the contract, and slash the proposer that misbehaves
+
 contract BytecodeSlasher {
     event BytecodeExecuted(bytes bytecode, bool success);
 
