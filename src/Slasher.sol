@@ -5,7 +5,7 @@ pragma solidity >=0.8.0 <0.9.0;
 // The return data given to the preconfirmation requester should have all the data necessary to initiate a slash
 // This contract should contain all the data necessary to issue a challenge to the contract, and slash the proposer that misbehaves
 
-contract BytecodeSlasher {
+contract Slasher {
     event BytecodeExecuted(bytes bytecode, bool success);
 
     error ExecutionFailed();
