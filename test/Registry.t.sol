@@ -636,3 +636,86 @@ contract RegistryTest is UnitTestHelper {
         registry.addCollateral{ value: 1 gwei }(registrationRoot);
     }
 }
+
+contract ReentrantContract {
+    IRegistry public registry;
+    bytes32 public registrationRoot;
+    uint256 public errors;
+
+    constructor(address registryAddress) {
+        registry = IRegistry(registryAddress);
+    }
+
+    function register(IRegistry.Registration[] memory _registrations, uint16 _unregistrationDelay) public {
+        registrationRoot = registry.register{ value: 1 ether }(_registrations, address(this), _unregistrationDelay);
+    }
+
+    function unregister() public {
+        registry.unregister(registrationRoot);
+    }
+
+    function claimCollateral() public {
+        registry.claimCollateral(registrationRoot);
+    }
+
+    receive() external payable {
+        try registry.addCollateral{ value: msg.value }(registrationRoot) {
+            revert("should not be able to add collateral");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        try registry.unregister(registrationRoot) {
+            revert("should not be able to unregister");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        try registry.claimCollateral(registrationRoot) {
+            revert("should not be able to claim collateral");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        require(errors == 3, "should have 3 errors");
+    }
+}
+
+contract ReentrantRegistryTest is UnitTestHelper {
+    using BLS for *;
+
+    ReentrantContract public reentrantContract;
+
+    function setUp() public {
+        registry = new Registry();
+        reentrantContract = new ReentrantContract(address(registry));
+        vm.deal(address(reentrantContract), 1000 ether);
+    }
+
+    function test_reentrantClaimCollateral() public {
+        (uint16 unregistrationDelay,) = _setupBasicRegistrationParams();
+        IRegistry.Registration[] memory registrations =
+            _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract), unregistrationDelay);
+
+        reentrantContract.register(registrations, unregistrationDelay);
+
+        // pretend to unregister
+        reentrantContract.unregister();
+
+        // wait for unregistration delay
+        vm.roll(block.number + unregistrationDelay);
+
+        uint256 balanceBefore = address(reentrantContract).balance;
+
+        vm.prank(address(reentrantContract));
+        vm.expectEmit(address(registry));
+        emit IRegistry.CollateralClaimed(reentrantContract.registrationRoot(), uint256(1 ether / 1 gwei));
+        reentrantContract.claimCollateral();
+
+        assertEq(address(reentrantContract).balance, balanceBefore + 1 ether, "Collateral not returned");
+
+        // Verify registration was deleted
+        (address withdrawalAddress,,,,) = registry.registrations(reentrantContract.registrationRoot());
+        assertEq(withdrawalAddress, address(0), "Registration not deleted");
+    }
+}
