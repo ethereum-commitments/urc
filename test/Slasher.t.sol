@@ -338,6 +338,74 @@ contract DummySlasherTest is UnitTestHelper {
             ""
         );
     }
+
+    function testSlashCommitmentIsReentrantProtected() public {
+        uint256 slashAmountGwei = 42;
+        dummySlasher = new DummySlasher(slashAmountGwei);
+
+        RegisterAndDelegateParams memory params = RegisterAndDelegateParams({
+            proposerSecretKey: SECRET_KEY_1,
+            collateral: collateral,
+            withdrawalAddress: address(0),
+            delegateSecretKey: SECRET_KEY_2,
+            slasher: address(dummySlasher),
+            domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
+            metadata: "",
+            validUntil: uint64(UINT256_MAX)
+        });
+
+        (RegisterAndDelegateResult memory result, address reentrantContract) = registerAndDelegateReentrant(params);
+
+        // Setup proof
+        bytes32[] memory leaves = _hashToLeaves(result.registrations);
+        uint256 leafIndex = 0;
+        bytes32[] memory proof = MerkleTree.generateProof(leaves, leafIndex);
+        bytes memory evidence = "";
+
+        // skip past fraud proof window
+        vm.roll(block.timestamp + registry.FRAUD_PROOF_WINDOW() + 1);
+
+        uint256 bobBalanceBefore = bob.balance;
+        uint256 balanceBefore = address(reentrantContract).balance;
+        uint256 urcBalanceBefore = address(registry).balance;
+        console.log("bobBalanceBefore", bobBalanceBefore);
+        console.log("balanceBefore", balanceBefore);
+        console.log("urcBalanceBefore", urcBalanceBefore);
+
+        // slash from a different address
+        vm.prank(bob);
+        vm.expectEmit(address(registry));
+        emit IRegistry.OperatorSlashed(
+            result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.proposerPubKey
+        );
+        uint256 gotSlashAmountGwei = registry.slashCommitment(
+            result.registrationRoot,
+            result.registrations[leafIndex].signature,
+            proof,
+            leafIndex,
+            result.signedDelegation,
+            evidence
+        );
+        assertEq(slashAmountGwei, gotSlashAmountGwei, "Slash amount incorrect");
+
+        console.log("bobBalance", bob.balance);
+        console.log("balance", address(reentrantContract).balance);
+        console.log("urcBalance", address(registry).balance);
+
+        // verify balances updated correctly
+        _verifySlashingBalances(
+            bob,
+            address(reentrantContract),
+            slashAmountGwei * 1 gwei,
+            1 ether,
+            bobBalanceBefore,
+            balanceBefore,
+            urcBalanceBefore
+        );
+
+        // Verify operator was deleted
+        _assertRegistration(result.registrationRoot, address(0), 0, 0, 0, 0);
+    }
 }
 
 // Helper contract that rejects ETH transfers

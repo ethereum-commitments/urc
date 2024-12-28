@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../src/Registry.sol";
 import "../src/IRegistry.sol";
 import { BLS } from "../src/lib/BLS.sol";
-import { UnitTestHelper } from "./UnitTestHelper.sol";
+import { UnitTestHelper, ReentrantRegistrationContract } from "./UnitTestHelper.sol";
 
 contract RegistryTest is UnitTestHelper {
     using BLS for *;
@@ -635,64 +635,11 @@ contract RegistryTest is UnitTestHelper {
         vm.expectRevert(IRegistry.NotRegisteredKey.selector);
         registry.addCollateral{ value: 1 gwei }(registrationRoot);
     }
-}
-
-contract ReentrantContract {
-    IRegistry public registry;
-    bytes32 public registrationRoot;
-    uint256 public errors;
-
-    constructor(address registryAddress) {
-        registry = IRegistry(registryAddress);
-    }
-
-    function register(IRegistry.Registration[] memory _registrations, uint16 _unregistrationDelay) public {
-        registrationRoot = registry.register{ value: 1 ether }(_registrations, address(this), _unregistrationDelay);
-    }
-
-    function unregister() public {
-        registry.unregister(registrationRoot);
-    }
-
-    function claimCollateral() public {
-        registry.claimCollateral(registrationRoot);
-    }
-
-    receive() external payable {
-        try registry.addCollateral{ value: msg.value }(registrationRoot) {
-            revert("should not be able to add collateral");
-        } catch (bytes memory _reason) {
-            errors += 1;
-        }
-
-        try registry.unregister(registrationRoot) {
-            revert("should not be able to unregister");
-        } catch (bytes memory _reason) {
-            errors += 1;
-        }
-
-        try registry.claimCollateral(registrationRoot) {
-            revert("should not be able to claim collateral");
-        } catch (bytes memory _reason) {
-            errors += 1;
-        }
-
-        require(errors == 3, "should have 3 errors");
-    }
-}
-
-contract ReentrantRegistryTest is UnitTestHelper {
-    using BLS for *;
-
-    ReentrantContract public reentrantContract;
-
-    function setUp() public {
-        registry = new Registry();
-        reentrantContract = new ReentrantContract(address(registry));
-        vm.deal(address(reentrantContract), 1000 ether);
-    }
 
     function test_reentrantClaimCollateral() public {
+        ReentrantRegistrationContract reentrantContract = new ReentrantRegistrationContract(address(registry));
+        vm.deal(address(reentrantContract), 1000 ether);
+
         (uint16 unregistrationDelay,) = _setupBasicRegistrationParams();
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract), unregistrationDelay);
@@ -710,6 +657,8 @@ contract ReentrantRegistryTest is UnitTestHelper {
         vm.prank(address(reentrantContract));
         vm.expectEmit(address(registry));
         emit IRegistry.CollateralClaimed(reentrantContract.registrationRoot(), uint256(1 ether / 1 gwei));
+
+        // initiate reentrancy
         reentrantContract.claimCollateral();
 
         assertEq(address(reentrantContract).balance, balanceBefore + 1 ether, "Collateral not returned");
