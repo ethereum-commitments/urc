@@ -20,7 +20,7 @@ contract Registry is IRegistry, OwnableUpgradeable, UUPSUpgradeable {
 
     uint256[47] private __gap;
 
-    function initialize(
+    function initializeParams(
         address a,
         uint48 _challengeTimeoutWindow,
         uint48 _costOfChallenge,
@@ -61,7 +61,17 @@ contract Registry is IRegistry, OwnableUpgradeable, UUPSUpgradeable {
 
     event ValidatorRegistered(bytes32 indexed pubkeyHash);
     
+    function initialize(address _owner, address _parameters) public initializer {
+        _Ownable_init(_owner);
+        
+        parameters = IBoltParametersV1(_parameters);
+    }
 
+    function getAllValidators() public view returns (ValidatorInfo[] memory) {
+        ValidatorsLib._Validator[] memory _vals = VALIDATORS.getAll();
+        ValidatorInfo[] moe
+    }
+    
     /// ====== END VALIDATOR REGISTER FUNCTIONS ====
 
     using BLS for *;
