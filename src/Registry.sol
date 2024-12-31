@@ -130,11 +130,10 @@ contract Registry is IRegistry {
         delete registrations[registrationRoot];
 
         // Calculate the amount to transfer to challenger and return to operator
-        slashedCollateralWei = MIN_COLLATERAL;
-        uint256 remainingWei = uint256(collateralGwei) * 1 gwei - slashedCollateralWei;
+        uint256 remainingWei = uint256(collateralGwei) * 1 gwei - MIN_COLLATERAL;
 
         // Transfer to the challenger
-        (bool success,) = msg.sender.call{ value: slashedCollateralWei }("");
+        (bool success,) = msg.sender.call{ value: MIN_COLLATERAL }("");
         if (!success) {
             revert EthTransferFailed();
         }
@@ -146,6 +145,8 @@ contract Registry is IRegistry {
         }
 
         emit RegistrationSlashed(registrationRoot, msg.sender, operatorWithdrawalAddress, reg);
+
+        return MIN_COLLATERAL;
     }
 
     /// @notice Starts the unregistration process for an operator

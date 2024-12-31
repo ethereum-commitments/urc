@@ -24,18 +24,18 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_register_insufficientCollateral() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
 
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
         vm.expectRevert(IRegistry.InsufficientCollateral.selector);
-        registry.register{ value: collateral - 1 }(registrations, alice, unregistrationDelay);
+        registry.register{ value: minCollateral - 1 }(registrations, alice, unregistrationDelay);
     }
 
     function test_register_unregistrationDelayTooShort() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
 
@@ -46,7 +46,7 @@ contract RegistryTest is UnitTestHelper {
         );
 
         vm.expectRevert(IRegistry.UnregistrationDelayTooShort.selector);
-        registry.register{ value: collateral }(
+        registry.register{ value: minCollateral }(
             registrations,
             alice,
             unregistrationDelay - 1 // submit shorter delay than the one signed by validator key
@@ -54,18 +54,22 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_register_OperatorAlreadyRegistered() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
 
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(
+            registrations,
+            alice,
+            unregistrationDelay
+        );
 
         _assertRegistration(
             registrationRoot,
             alice,
-            uint56(collateral / 1 gwei),
+            uint56(minCollateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
             unregistrationDelay
@@ -73,22 +77,26 @@ contract RegistryTest is UnitTestHelper {
 
         // Attempt duplicate registration
         vm.expectRevert(IRegistry.OperatorAlreadyRegistered.selector);
-        registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
+        registry.register{ value: minCollateral }(registrations, alice, unregistrationDelay);
     }
 
     function test_verifyMerkleProofHeight1() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
 
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(registrations, alice, unregistrationDelay);
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(
+            registrations,
+            alice,
+            unregistrationDelay
+        );
 
         _assertRegistration(
             registrationRoot,
             alice,
-            uint56(collateral / 1 gwei),
+            uint56(minCollateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
             unregistrationDelay
@@ -104,11 +112,12 @@ contract RegistryTest is UnitTestHelper {
             proof,
             0 // leafIndex
         );
-        assertEq(gotCollateral, uint56(collateral / 1 gwei), "Wrong collateral amount");
+        assertEq(gotCollateral, uint56(minCollateral / 1 gwei), "Wrong collateral amount");
     }
 
     function test_slashRegistrationHeight1_DifferentUnregDelay() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
 
         IRegistry.Registration[] memory registrations = _setupSingleRegistration(
             SECRET_KEY_1,
@@ -140,18 +149,19 @@ contract RegistryTest is UnitTestHelper {
         uint256 urcBalanceBefore = address(registry).balance;
 
         vm.prank(bob);
-        uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, 0);
-        assertEq(slashedCollateralWei, collateral, "Wrong slashedCollateralWei amount");
+        uint256 rewardCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, 0);
+        assertEq(rewardCollateralWei, minCollateral, "Wrong rewardCollateralWei amount");
 
         _verifySlashingBalances(
-            bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob, alice, 0, rewardCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
     }
 
     function test_slashRegistrationHeight1_DifferentWithdrawalAddress() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
 
@@ -186,7 +196,7 @@ contract RegistryTest is UnitTestHelper {
 
         // alice is the challenger
         vm.prank(alice);
-        uint256 slashedCollateralWei = registry.slashRegistration(
+        uint256 rewardCollateralWei = registry.slashRegistration(
             registrationRoot,
             registrations[0],
             proof,
@@ -194,7 +204,7 @@ contract RegistryTest is UnitTestHelper {
         );
 
         _verifySlashingBalances(
-            alice, bob, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            alice, bob, 0, rewardCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         // ensure operator was deleted
@@ -202,7 +212,8 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_verifyMerkleProofHeight2() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](2);
 
@@ -237,7 +248,8 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_slashRegistrationHeight2_DifferentUnregDelay() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](2);
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
@@ -272,15 +284,16 @@ contract RegistryTest is UnitTestHelper {
         uint256 urcBalanceBefore = address(registry).balance;
 
         vm.prank(bob);
-        uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
+        uint256 rewardCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob, alice, 0, rewardCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
     }
 
     function test_slashRegistrationHeight2_DifferentWithdrawalAddress() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](2);
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
@@ -313,15 +326,16 @@ contract RegistryTest is UnitTestHelper {
         uint256 urcBalanceBefore = address(registry).balance;
 
         vm.prank(alice);
-        uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
+        uint256 rewardCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            alice, bob, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            alice, bob, 0, rewardCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
     }
 
     function test_verifyMerkleProofHeight3() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 3 * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](3); // will be padded to 4
 
@@ -355,7 +369,8 @@ contract RegistryTest is UnitTestHelper {
     function test_fuzzRegister(uint8 n) public {
         vm.assume(n > 0);
         uint256 size = uint256(n);
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = size * minCollateral;
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](size);
         for (uint256 i = 0; i < size; i++) {
@@ -377,14 +392,14 @@ contract RegistryTest is UnitTestHelper {
     function test_slashRegistrationFuzz_DifferentUnregDelay(uint8 n) public {
         vm.assume(n > 0);
         uint256 size = uint256(n);
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](size);
         for (uint256 i = 0; i < size; i++) {
             registrations[i] = _createRegistration(SECRET_KEY_1 + i, alice, unregistrationDelay);
         }
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(
             registrations,
             alice,
             unregistrationDelay + 1 // submit different delay than the one signed by validator keys
@@ -400,15 +415,15 @@ contract RegistryTest is UnitTestHelper {
         for (uint256 i = 0; i < leaves.length; i++) {
             bytes32[] memory proof = MerkleTree.generateProof(leaves, i);
             vm.prank(bob);
-            uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[i], proof, i);
+            registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+                bob, alice, 0, minCollateral, minCollateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
 
             // Re-register to reset the state
-            registrationRoot = registry.register{ value: collateral }(
+            registrationRoot = registry.register{ value: minCollateral }(
                 registrations,
                 alice,
                 unregistrationDelay + 1 // submit different delay than the one signed by validator keys
@@ -424,14 +439,14 @@ contract RegistryTest is UnitTestHelper {
     function test_slashRegistrationFuzz_DifferentWithdrawalAddress(uint8 n) public {
         vm.assume(n > 0);
         uint256 size = uint256(n);
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
 
         IRegistry.Registration[] memory registrations = new IRegistry.Registration[](size);
         for (uint256 i = 0; i < size; i++) {
             registrations[i] = _createRegistration(SECRET_KEY_1 + i, alice, unregistrationDelay);
         }
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(
             registrations,
             bob, // submit different withdrawal address than the one signed by validator keys
             unregistrationDelay
@@ -447,15 +462,15 @@ contract RegistryTest is UnitTestHelper {
         for (uint256 i = 0; i < leaves.length; i++) {
             bytes32[] memory proof = MerkleTree.generateProof(leaves, i);
             vm.prank(bob);
-            uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[i], proof, i);
+            registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+                bob, alice, 0, minCollateral, minCollateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
 
             // Re-register to reset the state
-            registrationRoot = registry.register{ value: collateral }(
+            registrationRoot = registry.register{ value: minCollateral }(
                 registrations,
                 bob, // submit different withdrawal address than the one signed by validator keys
                 unregistrationDelay
@@ -469,7 +484,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_unregister() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -486,7 +503,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_unregister_wrongOperator() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -499,7 +518,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_unregister_alreadyUnregistered() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -515,7 +536,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_claimCollateral() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -542,7 +565,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_claimCollateral_notUnregistered() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -555,7 +580,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_claimCollateral_delayNotMet() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -573,7 +600,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_claimCollateral_alreadyClaimed() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -594,7 +623,8 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_addCollateral(uint56 addAmount) public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
         vm.assume((addAmount + collateral) / 1 gwei < uint256(2 ** 56));
 
         IRegistry.Registration[] memory registrations =
@@ -615,7 +645,9 @@ contract RegistryTest is UnitTestHelper {
     }
 
     function test_addCollateral_overflow() public {
-        (uint16 unregistrationDelay, uint256 collateral) = _setupBasicRegistrationParams();
+        (uint16 unregistrationDelay, uint256 minCollateral) = _setupBasicRegistrationParams();
+        uint256 collateral = 2 * minCollateral;
+
         IRegistry.Registration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
@@ -662,12 +694,19 @@ contract RegistryTest is UnitTestHelper {
 
         vm.prank(address(reentrantContract));
         vm.expectEmit(address(registry));
-        emit IRegistry.CollateralClaimed(reentrantContract.registrationRoot(), uint256(1 ether / 1 gwei));
+        emit IRegistry.CollateralClaimed(
+            reentrantContract.registrationRoot(),
+            reentrantContract.collateral() / 1 gwei
+        );
 
         // initiate reentrancy
         reentrantContract.claimCollateral();
 
-        assertEq(address(reentrantContract).balance, balanceBefore + 1 ether, "Collateral not returned");
+        assertEq(
+            address(reentrantContract).balance,
+            balanceBefore + reentrantContract.collateral(),
+            "Collateral not returned"
+        );
 
         // Verify registration was deleted
         (address withdrawalAddress,,,,) = registry.registrations(reentrantContract.registrationRoot());
@@ -695,7 +734,7 @@ contract RegistryTest is UnitTestHelper {
         _assertRegistration(
             reentrantContract.registrationRoot(),
             address(reentrantContract),
-            uint56(1 ether / 1 gwei),
+            uint56(reentrantContract.collateral() / 1 gwei),
             uint32(block.number),
             type(uint32).max,
             unregistrationDelay
@@ -704,10 +743,6 @@ contract RegistryTest is UnitTestHelper {
         // generate merkle proof
         bytes32[] memory leaves = _hashToLeaves(registrations);
         bytes32[] memory proof = MerkleTree.generateProof(leaves, 0);
-
-        uint256 bobBalanceBefore = bob.balance;
-        uint256 aliceBalanceBefore = alice.balance;
-        uint256 urcBalanceBefore = address(registry).balance;
 
         // bob can slash the registration
         vm.startPrank(bob);
