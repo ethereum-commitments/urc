@@ -11,7 +11,7 @@ import { ISlasher } from "../src/ISlasher.sol";
 import { UnitTestHelper, IReentrantContract } from "./UnitTestHelper.sol";
 
 contract DummySlasher is ISlasher {
-    uint256 public SLASH_AMOUNT_GWEI = 1 ether / 1 gwei; 
+    uint256 public SLASH_AMOUNT_GWEI = 1 ether / 1 gwei;
     uint256 public REWARD_AMOUNT_GWEI = 0.1 ether / 1 gwei; // MIN_COLLATERAL
 
     function DOMAIN_SEPARATOR() external view returns (bytes memory) {
@@ -70,7 +70,10 @@ contract DummySlasherTest is UnitTestHelper {
         vm.startPrank(bob);
         vm.expectEmit(address(registry));
         emit IRegistry.OperatorSlashed(
-            result.registrationRoot, dummySlasher.SLASH_AMOUNT_GWEI(), dummySlasher.REWARD_AMOUNT_GWEI(), result.signedDelegation.delegation.proposerPubKey
+            result.registrationRoot,
+            dummySlasher.SLASH_AMOUNT_GWEI(),
+            dummySlasher.REWARD_AMOUNT_GWEI(),
+            result.signedDelegation.delegation.proposerPubKey
         );
         (uint256 gotSlashAmountGwei, uint256 gotRewardAmountGwei) = registry.slashCommitment(
             result.registrationRoot,
@@ -84,7 +87,14 @@ contract DummySlasherTest is UnitTestHelper {
 
         // verify balances updated correctly
         _verifySlashingBalances(
-            bob, alice, dummySlasher.SLASH_AMOUNT_GWEI() * 1 gwei, dummySlasher.REWARD_AMOUNT_GWEI() * 1 gwei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob,
+            alice,
+            dummySlasher.SLASH_AMOUNT_GWEI() * 1 gwei,
+            dummySlasher.REWARD_AMOUNT_GWEI() * 1 gwei,
+            collateral,
+            bobBalanceBefore,
+            aliceBalanceBefore,
+            urcBalanceBefore
         );
 
         // Verify operator was deleted
@@ -316,15 +326,13 @@ contract DummySlasherTest is UnitTestHelper {
         vm.startPrank(alice);
         vm.expectEmit(address(registry));
         emit IRegistry.OperatorSlashed(
-            result.registrationRoot, dummySlasher.SLASH_AMOUNT_GWEI(), dummySlasher.REWARD_AMOUNT_GWEI(), result.signedDelegation.delegation.proposerPubKey
+            result.registrationRoot,
+            dummySlasher.SLASH_AMOUNT_GWEI(),
+            dummySlasher.REWARD_AMOUNT_GWEI(),
+            result.signedDelegation.delegation.proposerPubKey
         );
         (uint256 gotSlashAmountGwei, uint256 gotRewardAmountGwei) = registry.slashCommitment(
-            result.registrationRoot,
-            result.registrations[0].signature,
-            proof,
-            0,
-            result.signedDelegation,
-            evidence
+            result.registrationRoot, result.registrations[0].signature, proof, 0, result.signedDelegation, evidence
         );
         assertEq(dummySlasher.SLASH_AMOUNT_GWEI(), gotSlashAmountGwei, "Slash amount incorrect");
 

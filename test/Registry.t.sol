@@ -60,11 +60,7 @@ contract RegistryTest is UnitTestHelper {
 
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: minCollateral }(
-            registrations,
-            alice,
-            unregistrationDelay
-        );
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
             registrationRoot,
@@ -87,11 +83,7 @@ contract RegistryTest is UnitTestHelper {
 
         registrations[0] = _createRegistration(SECRET_KEY_1, alice, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: minCollateral }(
-            registrations,
-            alice,
-            unregistrationDelay
-        );
+        bytes32 registrationRoot = registry.register{ value: minCollateral }(registrations, alice, unregistrationDelay);
 
         _assertRegistration(
             registrationRoot,
@@ -694,10 +686,7 @@ contract RegistryTest is UnitTestHelper {
 
         vm.prank(address(reentrantContract));
         vm.expectEmit(address(registry));
-        emit IRegistry.CollateralClaimed(
-            reentrantContract.registrationRoot(),
-            reentrantContract.collateral() / 1 gwei
-        );
+        emit IRegistry.CollateralClaimed(reentrantContract.registrationRoot(), reentrantContract.collateral() / 1 gwei);
 
         // initiate reentrancy
         reentrantContract.claimCollateral();

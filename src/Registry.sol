@@ -254,7 +254,9 @@ contract Registry is IRegistry {
         // Reward, burn, and return Ether
         _executeSlashingTransfers(operatorWithdrawalAddress, collateralGwei, slashAmountGwei, rewardAmountGwei);
 
-        emit OperatorSlashed(registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey);
+        emit OperatorSlashed(
+            registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey
+        );
     }
 
     /// @notice Adds collateral to an Operator struct
@@ -369,10 +371,8 @@ contract Registry is IRegistry {
         bytes calldata evidence,
         uint256 collateralGwei
     ) internal returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
-        (slashAmountGwei, rewardAmountGwei) = ISlasher(signedDelegation.delegation.slasher).slash(
-            signedDelegation.delegation,
-            evidence
-        );
+        (slashAmountGwei, rewardAmountGwei) =
+            ISlasher(signedDelegation.delegation.slasher).slash(signedDelegation.delegation, evidence);
 
         if (slashAmountGwei > collateralGwei) {
             revert SlashAmountExceedsCollateral();
@@ -385,9 +385,12 @@ contract Registry is IRegistry {
     /// @param collateralGwei The operator's collateral amount in GWEI
     /// @param slashAmountGwei The amount of GWEI to be transferred to the caller
     /// @param rewardAmountGwei The amount of GWEI to be transferred to the caller
-    function _executeSlashingTransfers(address withdrawalAddress, uint256 collateralGwei, uint256 slashAmountGwei, uint256 rewardAmountGwei)
-        internal
-    {
+    function _executeSlashingTransfers(
+        address withdrawalAddress,
+        uint256 collateralGwei,
+        uint256 slashAmountGwei,
+        uint256 rewardAmountGwei
+    ) internal {
         // Burn the slash amount
         (bool success,) = BURNER_ADDRESS.call{ value: slashAmountGwei * 1 gwei }("");
         if (!success) {
