@@ -315,7 +315,7 @@ contract DummySlasherTest is UnitTestHelper {
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
             metadata: "",
             validUntil: uint64(block.timestamp - 1) // Delegation expired
-        });
+         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
