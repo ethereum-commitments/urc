@@ -31,7 +31,7 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
     BLS.G1Point delegatePubKey;
     uint256 slashAmountGwei = 1 ether / 1 gwei; // slash 1 ether
     uint256 rewardAmountGwei = 0.1 ether / 1 gwei; // reward 0.1 ether
-    uint256 collateral = 1 ether;
+    uint256 collateral = 1.1 ether;
 
     function setUp() public {
         vm.createSelectFork(vm.rpcUrl("mainnet"));
