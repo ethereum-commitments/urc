@@ -16,6 +16,7 @@ contract Registry is IRegistry {
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200; // 1 day
+    address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
     bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
     uint256 public ETH2_GENESIS_TIMESTAMP;
 
@@ -249,8 +250,8 @@ contract Registry is IRegistry {
         // Delete the operator
         delete registrations[registrationRoot];
 
-        // Distribute slashed funds
-        _distributeSlashedFunds(operatorWithdrawalAddress, collateralGwei, slashAmountGwei);
+        // Reward, burn, and return Ether
+        _executeSlashingTransfers(operatorWithdrawalAddress, collateralGwei, slashAmountGwei, rewardAmountGwei);
 
         emit OperatorSlashed(registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey);
     }
@@ -372,31 +373,34 @@ contract Registry is IRegistry {
             evidence
         );
 
-        if (slashAmountGwei == 0) {
-            revert NoCollateralSlashed();
-        }
-
         if (slashAmountGwei > collateralGwei) {
             revert SlashAmountExceedsCollateral();
         }
     }
 
-    /// @notice Distributes slashed funds to the slasher and returns any remaining funds to the operator
-    /// @dev The function will revert if the transfer to the slasher fails or if the transfer to the operator fails.
+    /// @notice Distributes rewards to the challenger, burns the slash amount, and returns any remaining funds to the operator
+    /// @dev The function will revert if the transfer to the slasher fails, if the transfer to the operator fails, or if the rewardAmountGwei is less than `MIN_COLLATERAL`.
     /// @param withdrawalAddress The address to return any remaining funds to
     /// @param collateralGwei The operator's collateral amount in GWEI
     /// @param slashAmountGwei The amount of GWEI to be transferred to the caller
-    function _distributeSlashedFunds(address withdrawalAddress, uint256 collateralGwei, uint256 slashAmountGwei)
+    /// @param rewardAmountGwei The amount of GWEI to be transferred to the caller
+    function _executeSlashingTransfers(address withdrawalAddress, uint256 collateralGwei, uint256 slashAmountGwei, uint256 rewardAmountGwei)
         internal
     {
-        // Transfer to the slasher
-        (bool success,) = msg.sender.call{ value: slashAmountGwei * 1 gwei }("");
+        // Burn the slash amount
+        (bool success,) = BURNER_ADDRESS.call{ value: slashAmountGwei * 1 gwei }("");
+        if (!success) {
+            revert EthTransferFailed();
+        }
+
+        // Transfer to the challenger
+        (success,) = msg.sender.call{ value: rewardAmountGwei * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }
 
         // Return any remaining funds to Operator
-        (success,) = withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei) * 1 gwei }("");
+        (success,) = withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei - rewardAmountGwei) * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }

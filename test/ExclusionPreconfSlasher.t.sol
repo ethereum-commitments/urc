@@ -200,7 +200,7 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
 
         // verify balances updated correctly
         _verifySlashingBalances(
-            bob, alice, slashAmountGwei * 1 gwei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob, alice, slashAmountGwei * 1 gwei, rewardAmountGwei * 1 gwei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         // Verify operator was deleted

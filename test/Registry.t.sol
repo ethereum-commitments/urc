@@ -144,7 +144,7 @@ contract RegistryTest is UnitTestHelper {
         assertEq(slashedCollateralWei, collateral, "Wrong slashedCollateralWei amount");
 
         _verifySlashingBalances(
-            bob, alice, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
@@ -194,7 +194,7 @@ contract RegistryTest is UnitTestHelper {
         );
 
         _verifySlashingBalances(
-            alice, bob, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            alice, bob, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
 
         // ensure operator was deleted
@@ -275,7 +275,7 @@ contract RegistryTest is UnitTestHelper {
         uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            bob, alice, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
     }
 
@@ -316,7 +316,7 @@ contract RegistryTest is UnitTestHelper {
         uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            alice, bob, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+            alice, bob, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
         );
     }
 
@@ -402,7 +402,7 @@ contract RegistryTest is UnitTestHelper {
             vm.prank(bob);
             uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                bob, alice, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+                bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
@@ -449,7 +449,7 @@ contract RegistryTest is UnitTestHelper {
             vm.prank(bob);
             uint256 slashedCollateralWei = registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                bob, alice, slashedCollateralWei, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
+                bob, alice, slashedCollateralWei, 0, collateral, bobBalanceBefore, aliceBalanceBefore, urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);

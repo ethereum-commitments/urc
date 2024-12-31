@@ -92,15 +92,16 @@ contract UnitTestHelper is Test {
         address challenger,
         address operator,
         uint256 slashedAmount,
+        uint256 rewardAmount,
         uint256 totalCollateral,
         uint256 challengerBalanceBefore,
         uint256 operatorBalanceBefore,
         uint256 urcBalanceBefore
     ) internal view {
-        assertEq(challenger.balance, challengerBalanceBefore + slashedAmount, "challenger didn't receive reward");
+        assertEq(challenger.balance, challengerBalanceBefore + rewardAmount, "challenger didn't receive reward");
         assertEq(
             operator.balance,
-            operatorBalanceBefore + totalCollateral - slashedAmount,
+            operatorBalanceBefore + totalCollateral - slashedAmount - rewardAmount,
             "operator didn't receive remaining funds"
         );
         assertEq(address(registry).balance, urcBalanceBefore - totalCollateral, "urc balance incorrect");
@@ -203,9 +204,14 @@ contract UnitTestHelper is Test {
     }
 }
 
+contract IReentrantContract {
+    uint256 public collateral;
+}
+
 /// @dev A contract that attempts to register, unregister, and claim collateral via reentrancy
 contract ReentrantContract {
     IRegistry public registry;
+    uint256 public collateral = 2 ether;
     bytes32 public registrationRoot;
     uint256 public errors;
     UnitTestHelper.RegisterAndDelegateParams params;
@@ -240,7 +246,7 @@ contract ReentrantContract {
         require(_registrations.length == 1, "test harness supports only 1 registration");
         registrations[0] = _registrations[0];
         unregistrationDelay = _unregistrationDelay;
-        registrationRoot = registry.register{ value: 1 ether }(_registrations, address(this), _unregistrationDelay);
+        registrationRoot = registry.register{ value: collateral }(_registrations, address(this), _unregistrationDelay);
     }
 
     function unregister() public {
