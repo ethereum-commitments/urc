@@ -5,7 +5,9 @@ import "forge-std/Test.sol";
 import "../src/Registry.sol";
 import "../src/IRegistry.sol";
 import { BLS } from "../src/lib/BLS.sol";
-import { UnitTestHelper, ReentrantRegistrationContract } from "./UnitTestHelper.sol";
+import {
+    UnitTestHelper, ReentrantRegistrationContract, ReentrantSlashableRegistrationContract
+} from "./UnitTestHelper.sol";
 
 contract RegistryTest is UnitTestHelper {
     using BLS for *;
@@ -455,8 +457,8 @@ contract RegistryTest is UnitTestHelper {
             // Re-register to reset the state
             registrationRoot = registry.register{ value: collateral }(
                 registrations,
-                alice,
-                unregistrationDelay + 1 // submit different delay than the one signed by validator keys
+                bob, // submit different withdrawal address than the one signed by validator keys
+                unregistrationDelay
             );
 
             // update balances
@@ -636,6 +638,10 @@ contract RegistryTest is UnitTestHelper {
         registry.addCollateral{ value: 1 gwei }(registrationRoot);
     }
 
+    // For setup we register() -> unregister() -> claimCollateral()
+    // The registration's withdrawal address is the reentrant contract
+    // Claiming collateral causes the reentrant contract to reenter the registry and call: addCollateral(), unregister(), claimCollateral()
+    // The test succeeds because the reentract contract catches the errors
     function test_reentrantClaimCollateral() public {
         ReentrantRegistrationContract reentrantContract = new ReentrantRegistrationContract(address(registry));
         vm.deal(address(reentrantContract), 1000 ether);
@@ -666,5 +672,50 @@ contract RegistryTest is UnitTestHelper {
         // Verify registration was deleted
         (address withdrawalAddress,,,,) = registry.registrations(reentrantContract.registrationRoot());
         assertEq(withdrawalAddress, address(0), "Registration not deleted");
+    }
+
+    // For setup we register() -> slashRegistration()
+    // The registration's withdrawal address is the reentrant contract
+    // Triggering a slash causes the reentrant contract to reenter the registry and call: addCollateral(), unregister(), claimCollateral(), slashRegistration()
+    // Finally it re-registers and the registration root should not change
+    // The test succeeds because the reentract contract catches the errors
+    function test_reentrantSlashRegistration() public {
+        ReentrantSlashableRegistrationContract reentrantContract =
+            new ReentrantSlashableRegistrationContract(address(registry));
+        vm.deal(address(reentrantContract), 1000 ether);
+
+        (uint16 unregistrationDelay,) = _setupBasicRegistrationParams();
+        IRegistry.Registration[] memory registrations = new IRegistry.Registration[](1);
+
+        registrations[0] = _createRegistration(SECRET_KEY_1, bob, unregistrationDelay);
+
+        // set operator's withdrawal address to reentrantContract
+        reentrantContract.register(registrations, unregistrationDelay);
+
+        _assertRegistration(
+            reentrantContract.registrationRoot(),
+            address(reentrantContract),
+            uint56(1 ether / 1 gwei),
+            uint32(block.number),
+            type(uint32).max,
+            unregistrationDelay
+        );
+
+        // generate merkle proof
+        bytes32[] memory leaves = _hashToLeaves(registrations);
+        bytes32[] memory proof = MerkleTree.generateProof(leaves, 0);
+
+        uint256 bobBalanceBefore = bob.balance;
+        uint256 aliceBalanceBefore = alice.balance;
+        uint256 urcBalanceBefore = address(registry).balance;
+
+        // bob can slash the registration
+        vm.startPrank(bob);
+        uint256 slashedCollateralWei = registry.slashRegistration(
+            reentrantContract.registrationRoot(),
+            registrations[0],
+            proof,
+            0 // leafIndex
+        );
     }
 }

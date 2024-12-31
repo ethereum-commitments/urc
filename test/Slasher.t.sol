@@ -314,8 +314,7 @@ contract DummySlasherTest is UnitTestHelper {
             slasher: address(dummySlasher),
             domainSeparator: dummySlasher.DOMAIN_SEPARATOR(),
             metadata: "",
-            // validUntil: uint64(block.timestamp - 1) // Delegation expired
-            validUntil: 0
+            validUntil: uint64(block.timestamp - 1) // Delegation expired
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -339,6 +338,10 @@ contract DummySlasherTest is UnitTestHelper {
         );
     }
 
+    // For setup we register() and delegate to the dummy slasher
+    // The registration's withdrawal address is the reentrant contract
+    // Triggering a slash causes the reentrant contract to reenter the registry and call: addCollateral(), unregister(), claimCollateral(), slashCommitment()
+    // The test succeeds because the reentract contract catches the errors
     function testSlashCommitmentIsReentrantProtected() public {
         uint256 slashAmountGwei = 42;
         dummySlasher = new DummySlasher(slashAmountGwei);
@@ -368,12 +371,10 @@ contract DummySlasherTest is UnitTestHelper {
         uint256 bobBalanceBefore = bob.balance;
         uint256 balanceBefore = address(reentrantContract).balance;
         uint256 urcBalanceBefore = address(registry).balance;
-        console.log("bobBalanceBefore", bobBalanceBefore);
-        console.log("balanceBefore", balanceBefore);
-        console.log("urcBalanceBefore", urcBalanceBefore);
 
         // slash from a different address
-        vm.prank(bob);
+        vm.startPrank(bob);
+        // vm.prank(bob);
         vm.expectEmit(address(registry));
         emit IRegistry.OperatorSlashed(
             result.registrationRoot, slashAmountGwei, result.signedDelegation.delegation.proposerPubKey
@@ -387,10 +388,6 @@ contract DummySlasherTest is UnitTestHelper {
             evidence
         );
         assertEq(slashAmountGwei, gotSlashAmountGwei, "Slash amount incorrect");
-
-        console.log("bobBalance", bob.balance);
-        console.log("balance", address(reentrantContract).balance);
-        console.log("urcBalance", address(registry).balance);
 
         // verify balances updated correctly
         _verifySlashingBalances(

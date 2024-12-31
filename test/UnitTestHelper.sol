@@ -64,10 +64,10 @@ contract UnitTestHelper is Test {
         assertEq(unregistrationDelay, expectedUnregistrationDelay, "Wrong unregistration delay");
     }
 
-    function _hashToLeaves(IRegistry.Registration[] memory registrations) internal pure returns (bytes32[] memory) {
-        bytes32[] memory leaves = new bytes32[](registrations.length);
-        for (uint256 i = 0; i < registrations.length; i++) {
-            leaves[i] = keccak256(abi.encode(registrations[i]));
+    function _hashToLeaves(IRegistry.Registration[] memory _registrations) internal pure returns (bytes32[] memory) {
+        bytes32[] memory leaves = new bytes32[](_registrations.length);
+        for (uint256 i = 0; i < _registrations.length; i++) {
+            leaves[i] = keccak256(abi.encode(_registrations[i]));
         }
         return leaves;
     }
@@ -176,7 +176,7 @@ contract UnitTestHelper is Test {
         public
         returns (RegisterAndDelegateResult memory result, address reentrantContractAddress)
     {
-        ReentrantContract reentrantContract = new ReentrantContract(address(registry));
+        ReentrantSlashCommitment reentrantContract = new ReentrantSlashCommitment(address(registry));
 
         (uint16 unregistrationDelay,) = _setupBasicRegistrationParams();
         result.registrations = _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract), unregistrationDelay);
@@ -211,6 +211,7 @@ contract ReentrantContract {
     UnitTestHelper.RegisterAndDelegateParams params;
     ISlasher.SignedDelegation signedDelegation;
     IRegistry.Registration[1] registrations;
+    uint16 unregistrationDelay;
 
     constructor(address registryAddress) {
         registry = IRegistry(registryAddress);
@@ -227,15 +228,18 @@ contract ReentrantContract {
         }
     }
 
-    function _hashToLeaves(IRegistry.Registration[] memory registrations) internal pure returns (bytes32[] memory) {
-        bytes32[] memory leaves = new bytes32[](registrations.length);
-        for (uint256 i = 0; i < registrations.length; i++) {
-            leaves[i] = keccak256(abi.encode(registrations[i]));
+    function _hashToLeaves(IRegistry.Registration[] memory _registrations) internal pure returns (bytes32[] memory) {
+        bytes32[] memory leaves = new bytes32[](_registrations.length);
+        for (uint256 i = 0; i < _registrations.length; i++) {
+            leaves[i] = keccak256(abi.encode(_registrations[i]));
         }
         return leaves;
     }
 
     function register(IRegistry.Registration[] memory _registrations, uint16 _unregistrationDelay) public {
+        require(_registrations.length == 1, "test harness supports only 1 registration");
+        registrations[0] = _registrations[0];
+        unregistrationDelay = _unregistrationDelay;
         registrationRoot = registry.register{ value: 1 ether }(_registrations, address(this), _unregistrationDelay);
     }
 
@@ -248,7 +252,7 @@ contract ReentrantContract {
     }
 }
 
-/// @dev A contract that attempts to register, unregister, and claim collateral via reentrancy
+/// @dev A contract that attempts to add collateral, unregister, and claim collateral via reentrancy
 contract ReentrantRegistrationContract is ReentrantContract {
     constructor(address registryAddress) ReentrantContract(registryAddress) { }
 
@@ -271,11 +275,56 @@ contract ReentrantRegistrationContract is ReentrantContract {
             errors += 1;
         }
 
+        // all attempts to re-enter should have failed
         require(errors == 3, "should have 3 errors");
     }
 }
 
-/// @dev A contract that attempts to register, unregister, and claim collateral via reentrancy
+/// @dev A contract that attempts to add collateral, unregister, and claim collateral via reentrancy
+contract ReentrantSlashableRegistrationContract is ReentrantContract {
+    constructor(address registryAddress) ReentrantContract(registryAddress) { }
+
+    receive() external payable {
+        try registry.addCollateral{ value: msg.value }(registrationRoot) {
+            revert("should not be able to add collateral");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        try registry.unregister(registrationRoot) {
+            revert("should not be able to unregister");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        try registry.claimCollateral(registrationRoot) {
+            revert("should not be able to claim collateral");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        bytes32[] memory proof; // empty for single leaf
+        try registry.slashRegistration(registrationRoot, registrations[0], proof, 0) {
+            revert("should not be able to slash registration again");
+        } catch (bytes memory _reason) {
+            errors += 1;
+        }
+
+        // expected re-registering to succeed
+        bytes32 oldRegistrationRoot = registrationRoot;
+        IRegistry.Registration[] memory _registrations = new IRegistry.Registration[](1);
+        _registrations[0] = registrations[0];
+        require(_registrations.length == 1, "test harness supports only 1 registration");
+        register(_registrations, unregistrationDelay);
+
+        require(registrationRoot == oldRegistrationRoot, "registration root should not change");
+
+        // previous attempts to re-enter should have failed
+        require(errors == 4, "should have 4 errors");
+    }
+}
+
+/// @dev A contract that attempts to add collateral, unregister, claim collateral, and slash commitment via reentrancy
 contract ReentrantSlashCommitment is ReentrantContract {
     constructor(address registryAddress) ReentrantContract(registryAddress) { }
 
@@ -298,15 +347,13 @@ contract ReentrantSlashCommitment is ReentrantContract {
             errors += 1;
         }
 
-        revert("here");
-
         // Setup proof
-        IRegistry.Registration[] memory _registrations;
+        IRegistry.Registration[] memory _registrations = new IRegistry.Registration[](1);
         _registrations[0] = registrations[0];
         bytes32[] memory leaves = _hashToLeaves(_registrations);
         uint256 leafIndex = 0;
-        bytes32[] memory proof = MerkleTree.generateProof(leaves, leafIndex);
-        bytes memory evidence = "";
+        bytes32[] memory proof; // empty for single leaf
+        bytes memory evidence;
 
         try registry.slashCommitment(
             registrationRoot, signedDelegation.signature, proof, leafIndex, signedDelegation, evidence
@@ -316,6 +363,7 @@ contract ReentrantSlashCommitment is ReentrantContract {
             errors += 1;
         }
 
+        // all attempts to re-enter should have failed
         require(errors == 4, "should have 4 errors");
     }
 }
