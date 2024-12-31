@@ -8,3 +8,4 @@ out/
 /broadcast/**/dry-run/
 
 .env
+.cursorrules
