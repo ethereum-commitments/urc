@@ -66,8 +66,9 @@ interface IRegistry {
     /// @notice Emitted when an operator is slashed for breaking a commitment
     /// @param registrationRoot The merkle root of the registration merkle tree
     /// @param slashAmountGwei The amount of GWEI slashed
+    /// @param rewardAmountGwei The amount of GWEI rewarded to the caller
     /// @param pubkey The BLS public key
-    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, BLS.G1Point pubkey);
+    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, uint256 rewardAmountGwei, BLS.G1Point pubkey);
 
     /// @notice Emitted when an operator is unregistered
     /// @param registrationRoot The merkle root of the registration merkle tree
@@ -150,5 +151,5 @@ interface IRegistry {
         uint256 leafIndex,
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence
-    ) external returns (uint256 slashAmountGwei);
+    ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
 }

@@ -218,6 +218,7 @@ contract Registry is IRegistry {
     /// @param signedDelegation The SignedDelegation signed by the operator's BLS key
     /// @param evidence Arbitrary evidence to slash the operator, required by the Slasher contract
     /// @return slashAmountGwei The amount of GWEI slashed
+    /// @return rewardAmountGwei The amount of GWEI rewarded to the caller
     function slashCommitment(
         bytes32 registrationRoot,
         BLS.G2Point calldata registrationSignature,
@@ -225,7 +226,7 @@ contract Registry is IRegistry {
         uint256 leafIndex,
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence
-    ) external returns (uint256 slashAmountGwei) {
+    ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
         Operator storage operator = registrations[registrationRoot];
         address operatorWithdrawalAddress = operator.withdrawalAddress;
 
@@ -243,7 +244,7 @@ contract Registry is IRegistry {
         uint256 collateralGwei =
             _verifyDelegation(registrationRoot, registrationSignature, proof, leafIndex, signedDelegation);
 
-        slashAmountGwei = _executeSlash(signedDelegation, evidence, collateralGwei);
+        (slashAmountGwei, rewardAmountGwei) = _executeSlash(signedDelegation, evidence, collateralGwei);
 
         // Delete the operator
         delete registrations[registrationRoot];
@@ -251,7 +252,7 @@ contract Registry is IRegistry {
         // Distribute slashed funds
         _distributeSlashedFunds(operatorWithdrawalAddress, collateralGwei, slashAmountGwei);
 
-        emit OperatorSlashed(registrationRoot, slashAmountGwei, signedDelegation.delegation.proposerPubKey);
+        emit OperatorSlashed(registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey);
     }
 
     /// @notice Adds collateral to an Operator struct
@@ -365,8 +366,11 @@ contract Registry is IRegistry {
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence,
         uint256 collateralGwei
-    ) internal returns (uint256 slashAmountGwei) {
-        slashAmountGwei = ISlasher(signedDelegation.delegation.slasher).slash(signedDelegation.delegation, evidence);
+    ) internal returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
+        (slashAmountGwei, rewardAmountGwei) = ISlasher(signedDelegation.delegation.slasher).slash(
+            signedDelegation.delegation,
+            evidence
+        );
 
         if (slashAmountGwei == 0) {
             revert NoCollateralSlashed();

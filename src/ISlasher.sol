@@ -31,9 +31,10 @@ interface ISlasher {
     /// @param delegation The delegation message
     /// @param evidence Arbitrary evidence for the slashing
     /// @return slashAmountGwei The amount of Gwei slashed
+    /// @return rewardAmountGwei The amount of Gwei rewarded to the caller
     function slash(Delegation calldata delegation, bytes calldata evidence)
         external
-        returns (uint256 slashAmountGwei);
+        returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
 
     /// @notice The domain separator for the Slasher contract
     /// @dev The domain separator is used to prevent replay attacks from different Slasher contracts

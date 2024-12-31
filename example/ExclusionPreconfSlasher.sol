@@ -23,6 +23,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     uint256 public SLASH_AMOUNT_GWEI;
+    uint256 public REWARD_AMOUNT_GWEI;
     address public constant BEACON_ROOTS_CONTRACT =
         0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     uint256 public constant EIP4788_WINDOW = 8191;
@@ -41,8 +42,9 @@ contract ExclusionPreconfSlasher is ISlasher {
     error InvalidBlockHash();
     error BeaconRootNotFound();
 
-    constructor(uint256 _slashAmountGwei) {
+    constructor(uint256 _slashAmountGwei, uint256 _rewardAmountGwei) {
         SLASH_AMOUNT_GWEI = _slashAmountGwei;
+        REWARD_AMOUNT_GWEI = _rewardAmountGwei;
 
         if (block.chainid == 17000) {
             // Holesky
@@ -59,7 +61,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     function slash(
         ISlasher.Delegation calldata delegation,
         bytes calldata evidence
-    ) external returns (uint256 slashAmountGwei) {
+    ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
         // Operator delegated to an ECDSA signer as part of the metadata field
         address commitmentSigner = abi.decode(delegation.metadata, (address));
 
@@ -79,6 +81,7 @@ contract ExclusionPreconfSlasher is ISlasher {
 
         // Return the slash amount to the URC slasher
         slashAmountGwei = SLASH_AMOUNT_GWEI;
+        rewardAmountGwei = REWARD_AMOUNT_GWEI;
     }
 
     function DOMAIN_SEPARATOR() external view returns (bytes memory) {
