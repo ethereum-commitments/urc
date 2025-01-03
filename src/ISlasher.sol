@@ -30,9 +30,10 @@ interface ISlasher {
     /// @dev The URC will call this function to slash a registered operator if supplied with a valid delegation and evidence
     /// @param delegation The delegation message
     /// @param evidence Arbitrary evidence for the slashing
+    /// @param challenger The address of the challenger
     /// @return slashAmountGwei The amount of Gwei slashed
     /// @return rewardAmountGwei The amount of Gwei rewarded to the caller
-    function slash(Delegation calldata delegation, bytes calldata evidence)
+    function slash(Delegation calldata delegation, bytes calldata evidence, address challenger)
         external
         returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
 

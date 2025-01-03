@@ -60,7 +60,8 @@ contract ExclusionPreconfSlasher is ISlasher {
 
     function slash(
         ISlasher.Delegation calldata delegation,
-        bytes calldata evidence
+        bytes calldata evidence,
+        address challenger
     ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
         // Operator delegated to an ECDSA signer as part of the metadata field
         address commitmentSigner = abi.decode(delegation.metadata, (address));

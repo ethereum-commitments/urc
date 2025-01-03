@@ -18,7 +18,7 @@ contract DummySlasher is ISlasher {
         return bytes("DUMMY-SLASHER-DOMAIN-SEPARATOR");
     }
 
-    function slash(ISlasher.Delegation calldata delegation, bytes calldata evidence)
+    function slash(ISlasher.Delegation calldata delegation, bytes calldata evidence, address challenger)
         external
         returns (uint256 slashAmountGwei, uint256 rewardAmountGwei)
     {
