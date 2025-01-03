@@ -3,7 +3,29 @@ pragma solidity >=0.8.0 <0.9.0;
 
 // Adapted from https://github.com/chainbound/bolt/tree/unstable/bolt-contracts
 
-contract PreconfStructs {
+interface PreconfStructs {
+    error BlockIsNotFinalized();
+    error InvalidParentBlockHash();
+    error UnexpectedSigner();
+    error TransactionExcluded();
+    error WrongTransactionHashProof();
+    error BlockIsTooOld();
+    error InvalidBlockNumber();
+    error InvalidBlockHash();
+    error BeaconRootNotFound();
+    error DelegationExpired();
+    error IncorrectChallengeBond();
+    error ChallengeAlreadyExists();
+    error ChallengeDoesNotExist();
+    error EthTransferFailed();
+    error WrongChallengerAddress();
+    error FraudProofWindowActive();
+
+    struct Challenge {
+        address challenger;
+        uint256 challengeTimestamp;
+    }
+
     struct SignedCommitment {
         uint64 slot;
         bytes signature;
