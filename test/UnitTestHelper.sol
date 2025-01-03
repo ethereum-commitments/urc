@@ -11,11 +11,10 @@ contract UnitTestHelper is Test {
     using BLS for *;
 
     Registry registry;
-    address alice = makeAddr("alice");
-    address bob = makeAddr("bob");
     address operator = makeAddr("operator");
     address challenger = makeAddr("challenger");
     address delegate = makeAddr("delegate");
+    address thief = makeAddr("thief");
 
     // Preset secret keys for deterministic testing
     uint256 constant SECRET_KEY_1 = 12345;

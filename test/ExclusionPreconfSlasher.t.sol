@@ -183,12 +183,12 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
         bytes32[] memory registrationProof = MerkleTree.generateProof(leaves, leafIndex);
 
         // Save for comparison after slashing
-        uint256 bobBalanceBefore = bob.balance;
-        uint256 aliceBalanceBefore = alice.balance;
+        uint256 challengerBalanceBefore = challenger.balance;
+        uint256 operatorBalanceBefore = operator.balance;
         uint256 urcBalanceBefore = address(registry).balance;
 
         // Slash via URC
-        vm.prank(bob);
+        vm.startPrank(challenger);
         registry.slashCommitment(
             result.registrationRoot,
             result.registrations[0].signature,
@@ -200,13 +200,13 @@ contract ExclusionPreconfSlasherTest is UnitTestHelper {
 
         // verify balances updated correctly
         _verifySlashingBalances(
-            bob,
-            alice,
+            challenger,
+            operator,
             slashAmountGwei * 1 gwei,
             rewardAmountGwei * 1 gwei,
             collateral,
-            bobBalanceBefore,
-            aliceBalanceBefore,
+            challengerBalanceBefore,
+            operatorBalanceBefore,
             urcBalanceBefore
         );
 
