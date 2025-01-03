@@ -20,7 +20,7 @@ interface PreconfStructs {
     error EthTransferFailed();
     error WrongChallengerAddress();
     error FraudProofWindowActive();
-
+    error NotURC();
     struct Challenge {
         address challenger;
         uint256 challengeTimestamp;

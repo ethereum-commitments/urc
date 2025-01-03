@@ -33,12 +33,13 @@ contract InclusionPreconfSlasher is ISlasher, PreconfStructs {
     uint256 public ETH2_GENESIS_TIMESTAMP;
     uint256 public constant CHALLENGE_WINDOW = 7200;
     uint256 public constant CHALLENGE_BOND = 1 ether;
-
+    address public urc;
     mapping(bytes32 challengeID => Challenge challenge) public challenges;
 
-    constructor(uint256 _slashAmountGwei, uint256 _rewardAmountGwei) {
+    constructor(uint256 _slashAmountGwei, uint256 _rewardAmountGwei, address _urc) {
         SLASH_AMOUNT_GWEI = _slashAmountGwei;
         REWARD_AMOUNT_GWEI = _rewardAmountGwei;
+        urc = _urc;
 
         if (block.chainid == 17000) {
             // Holesky
@@ -53,24 +54,28 @@ contract InclusionPreconfSlasher is ISlasher, PreconfStructs {
     }
 
     // claim that a transaction was not included in a block
-    function challenge(
-        PreconfStructs.SignedCommitment calldata commitment
-    ) external payable {
+    function createChallenge(
+        PreconfStructs.SignedCommitment calldata commitment,
+        ISlasher.SignedDelegation calldata signedDelegation
+    ) external payable returns (bytes32 challengeID) {
         // Check that the attached bond amount is correct
         if (msg.value != CHALLENGE_BOND) {
             revert IncorrectChallengeBond();
         }
 
         // compute the challenge ID
-        bytes32 challengeID = keccak256(abi.encode(commitment));
+        challengeID = keccak256(abi.encode(commitment, signedDelegation.delegation));
 
         // check if the challenge already exists
         if (challenges[challengeID].challenger != address(0)) {
             revert ChallengeAlreadyExists();
         }
 
+        // Operator delegated to an ECDSA signer as part of the metadata field
+        address commitmentSigner = abi.decode(signedDelegation.delegation.metadata, (address));
+
         // Check if the delegation applies to the slot of the commitment
-        if (delegation.validUntil < commitment.slot) {
+        if (signedDelegation.delegation.validUntil < commitment.slot) {
             revert DelegationExpired();
         }
 
@@ -89,7 +94,7 @@ contract InclusionPreconfSlasher is ISlasher, PreconfStructs {
         InclusionProof calldata proof
     ) external {
         // recover the challenge
-        bytes32 challengeID = keccak256(abi.encode(commitment));
+        bytes32 challengeID = keccak256(abi.encode(commitment, delegation));
         Challenge memory challenge = challenges[challengeID];
 
         // check if the challenge exists
@@ -123,11 +128,15 @@ contract InclusionPreconfSlasher is ISlasher, PreconfStructs {
         bytes calldata evidence,
         address challenger
     ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
+        if (msg.sender != urc) {
+            revert NotURC();
+        }
+
         // Recover the commitment from the evidence
         SignedCommitment memory commitment = abi.decode(evidence, (SignedCommitment));
 
         // recover the challenge ID from the commitment
-        bytes32 challengeID = keccak256(abi.encode(commitment));
+        bytes32 challengeID = keccak256(abi.encode(commitment, delegation));
 
         // It is assumed that this is function is called from the URC.slashCommitment() function. This check ensures that only the msg.sender that originates the chain of calls is able to slash the operator and ultimately claim the reward
         if (challenges[challengeID].challenger != challenger) {

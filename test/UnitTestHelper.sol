@@ -13,6 +13,9 @@ contract UnitTestHelper is Test {
     Registry registry;
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
+    address operator = makeAddr("operator");
+    address challenger = makeAddr("challenger");
+    address delegate = makeAddr("delegate");
 
     // Preset secret keys for deterministic testing
     uint256 constant SECRET_KEY_1 = 12345;
@@ -89,22 +92,22 @@ contract UnitTestHelper is Test {
     }
 
     function _verifySlashingBalances(
-        address challenger,
-        address operator,
-        uint256 slashedAmount,
-        uint256 rewardAmount,
-        uint256 totalCollateral,
-        uint256 challengerBalanceBefore,
-        uint256 operatorBalanceBefore,
-        uint256 urcBalanceBefore
+        address _challenger,
+        address _operator,
+        uint256 _slashedAmount,
+        uint256 _rewardAmount,
+        uint256 _totalCollateral,
+        uint256 _challengerBalanceBefore,
+        uint256 _operatorBalanceBefore,
+        uint256 _urcBalanceBefore
     ) internal view {
-        assertEq(challenger.balance, challengerBalanceBefore + rewardAmount, "challenger didn't receive reward");
+        assertEq(_challenger.balance, _challengerBalanceBefore + _rewardAmount, "challenger didn't receive reward");
         assertEq(
-            operator.balance,
-            operatorBalanceBefore + totalCollateral - slashedAmount - rewardAmount,
+            _operator.balance,
+            _operatorBalanceBefore + _totalCollateral - _slashedAmount - _rewardAmount,
             "operator didn't receive remaining funds"
         );
-        assertEq(address(registry).balance, urcBalanceBefore - totalCollateral, "urc balance incorrect");
+        assertEq(address(registry).balance, _urcBalanceBefore - _totalCollateral, "urc balance incorrect");
     }
 
     function basicRegistration(uint256 secretKey, uint256 collateral, address withdrawalAddress)
