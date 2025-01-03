@@ -29,6 +29,9 @@ forge test
 ### Design
 See the [docs](./docs/overview.md) for more information.
 
+### Examples
+See the [examples](./example/README.md) for reference implementations of Slasher contracts.
+
 ### References
 - Justin Drake’s proposed requirements
     > 1. The contract is super simple and short (ideally ~100 lines).
