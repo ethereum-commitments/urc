@@ -113,7 +113,6 @@ interface IRegistry {
     error FraudProofMerklePathInvalid();
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
-    error DelegationExpired();
     error OperatorAlreadyUnregistered();
     /**
      *

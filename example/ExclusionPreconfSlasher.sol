@@ -41,7 +41,7 @@ contract ExclusionPreconfSlasher is ISlasher {
     error InvalidBlockNumber();
     error InvalidBlockHash();
     error BeaconRootNotFound();
-
+    error DelegationExpired();
     constructor(uint256 _slashAmountGwei, uint256 _rewardAmountGwei) {
         SLASH_AMOUNT_GWEI = _slashAmountGwei;
         REWARD_AMOUNT_GWEI = _rewardAmountGwei;
@@ -75,6 +75,11 @@ contract ExclusionPreconfSlasher is ISlasher {
                 evidence,
                 (PreconfStructs.SignedCommitment, PreconfStructs.InclusionProof)
             );
+        
+        // Check if the delegation applies to the slot of the commitment
+        if (delegation.validUntil < commitment.slot) {
+            revert DelegationExpired();
+        }
 
         // If the inclusion proof is valid (doesn't revert) they should be slashed for not excluding the transaction
         _verifyInclusionProof(commitment, proof, commitmentSigner);

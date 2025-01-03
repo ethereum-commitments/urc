@@ -345,11 +345,6 @@ contract Registry is IRegistry {
         // Reconstruct Delegation message
         bytes memory message = abi.encode(signedDelegation.delegation);
 
-        // Check if the delegation is fresh
-        if (signedDelegation.delegation.validUntil < _getSlotFromTimestamp(block.timestamp)) {
-            revert DelegationExpired();
-        }
-
         // Recover Slasher contract domain separator
         bytes memory domainSeparator = ISlasher(signedDelegation.delegation.slasher).DOMAIN_SEPARATOR();
 
