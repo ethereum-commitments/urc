@@ -76,8 +76,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
         public
         returns (
             RegisterAndDelegateResult memory result,
-            bytes memory evidence,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         )
     {
         uint256 inclusionBlockNumber = 20_785_012;
@@ -123,38 +123,35 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
         uint256[] memory txIndexesInBlock = new uint256[](1);
         txIndexesInBlock[0] = vm.parseJsonUint(txProof, ".index");
 
-        PreconfStructs.InclusionProof memory inclusionProof = PreconfStructs
-            .InclusionProof({
-                inclusionBlockNumber: inclusionBlockNumber,
-                previousBlockHeaderRLP: vm.parseJsonBytes(
-                    rawPreviousHeader,
-                    ".result"
-                ),
-                inclusionBlockHeaderRLP: vm.parseJsonBytes(
-                    rawInclusionHeader,
-                    ".result"
-                ),
-                accountMerkleProof: _RLPEncodeList(
-                    vm.parseJsonBytesArray(ethProof, ".result.accountProof")
-                ),
-                txMerkleProofs: txProofs,
-                txIndexesInBlock: txIndexesInBlock
-            });
+        inclusionProof = PreconfStructs.InclusionProof({
+            inclusionBlockNumber: inclusionBlockNumber,
+            previousBlockHeaderRLP: vm.parseJsonBytes(
+                rawPreviousHeader,
+                ".result"
+            ),
+            inclusionBlockHeaderRLP: vm.parseJsonBytes(
+                rawInclusionHeader,
+                ".result"
+            ),
+            accountMerkleProof: _RLPEncodeList(
+                vm.parseJsonBytesArray(ethProof, ".result.accountProof")
+            ),
+            txMerkleProofs: txProofs,
+            txIndexesInBlock: txIndexesInBlock
+        });
 
         // check that the inclusion block transactions root matches the root in the tx proof data.
         bytes32 inclusionTxRoot = slasher
             ._decodeBlockHeaderRLP(inclusionProof.inclusionBlockHeaderRLP)
             .txRoot;
         assertEq(inclusionTxRoot, vm.parseJsonBytes32(txProof, ".root"));
-
-        evidence = abi.encode(commitment, inclusionProof);
     }
 
     function test_challenge() public {
         (
             RegisterAndDelegateResult memory result,
-            bytes memory evidence,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         ) = setupSlash(1);
 
         bytes32 challengeID = slasher.createChallenge{
@@ -162,15 +159,15 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
         }(commitment, result.signedDelegation);
         assertEq(
             challengeID,
-            keccak256(abi.encode(commitment, result.signedDelegation))
+            keccak256(abi.encode(commitment, result.signedDelegation.delegation))
         );
     }
 
     function test_revert_challenge_incorrectBond() public {
         (
             RegisterAndDelegateResult memory result,
-            ,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         ) = setupSlash(1);
 
         uint256 bond = slasher.CHALLENGE_BOND() - 1;
@@ -185,8 +182,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
     function test_revert_challenge_alreadyExists() public {
         (
             RegisterAndDelegateResult memory result,
-            ,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         ) = setupSlash(1);
 
         uint256 bond = slasher.CHALLENGE_BOND();
@@ -252,8 +249,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
         // Register at URC and generate slashable evidence
         (
             RegisterAndDelegateResult memory result,
-            bytes memory evidence,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         ) = setupSlash(1);
 
         // Save initial balances for comparison
@@ -290,7 +287,7 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
             registrationProof,
             0, // leaf index
             result.signedDelegation,
-            evidence
+            abi.encode(commitment)
         );
 
         _verifySlashingBalances(
@@ -309,14 +306,17 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
     }
 
     function test_revert_slash_wrongChallenger() public {
-        (RegisterAndDelegateResult memory result, bytes memory evidence, PreconfStructs.SignedCommitment memory commitment) = setupSlash(1);
+        (
+            RegisterAndDelegateResult memory result,
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
+        ) = setupSlash(1);
 
         // Create challenge as the original challenger
         vm.prank(challenger);
-        bytes32 challengeID = slasher.createChallenge{value: slasher.CHALLENGE_BOND()}(
-            commitment,
-            result.signedDelegation
-        );
+        bytes32 challengeID = slasher.createChallenge{
+            value: slasher.CHALLENGE_BOND()
+        }(commitment, result.signedDelegation);
 
         // Skip ahead past the challenge window
         vm.warp(block.timestamp + slasher.CHALLENGE_WINDOW() + 1);
@@ -324,7 +324,10 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
         // Merkle proof for URC registration
         bytes32[] memory leaves = _hashToLeaves(result.registrations);
         uint256 leafIndex = 0;
-        bytes32[] memory registrationProof = MerkleTree.generateProof(leaves, leafIndex);
+        bytes32[] memory registrationProof = MerkleTree.generateProof(
+            leaves,
+            leafIndex
+        );
 
         // Try to slash as different address (not the original challenger)
         vm.prank(operator);
@@ -335,27 +338,79 @@ contract InclusionPreconfSlasherTest is UnitTestHelper {
             registrationProof,
             leafIndex,
             result.signedDelegation,
-            evidence
+            abi.encode(commitment)
         );
     }
 
     function test_revert_slash_notURC() public {
         (
             RegisterAndDelegateResult memory result,
-            bytes memory evidence,
-            PreconfStructs.SignedCommitment memory commitment
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
         ) = setupSlash(1);
 
         // Try to call slash directly (not through URC)
         vm.expectRevert(PreconfStructs.NotURC.selector);
-        slasher.slash(result.signedDelegation.delegation, evidence, address(0));
+        slasher.slash(result.signedDelegation.delegation, abi.encode(commitment), address(0));
     }
 
-    // function test_proveChallengeFraudulent() public {
-    //     (RegisterAndDelegateResult memory result, bytes memory evidence, PreconfStructs.SignedCommitment memory commitment) = setupSlash(1);
+    function test_proveChallengeFraudulent() public {
+        // Register at URC and generate slashable evidence
+        (
+            RegisterAndDelegateResult memory result,
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
+        ) = setupSlash(1);
 
-    //     slasher.proveChallengeFraudulent(result.signedDelegation.delegation, commitment, evidence);
-    // }
+        // Save initial balances for comparison
+        uint256 challengerBalanceBefore = challenger.balance;
+        uint256 operatorBalanceBefore = operator.balance;
+        uint256 bond = slasher.CHALLENGE_BOND();
+
+        // Create challenge
+        vm.prank(challenger);
+        bytes32 challengeID = slasher.createChallenge{value: bond}(
+            commitment,
+            result.signedDelegation
+        );
+
+        // Verify challenger's balance decreased by bond amount
+        assertEq(challenger.balance, challengerBalanceBefore - bond);
+
+        // Prove the challenge is fraudulent (transaction was actually included)
+        vm.prank(operator);
+        slasher.proveChallengeFraudulent(
+            result.signedDelegation.delegation,
+            commitment,
+            inclusionProof
+        );
+
+        // Verify challenger lost their bond (transferred to operator)
+        assertEq(operator.balance, operatorBalanceBefore + bond);
+        assertEq(challenger.balance, challengerBalanceBefore - bond);
+
+        // Verify challenge was deleted
+        (address storedChallenger, ) = slasher.challenges(challengeID);
+        assertEq(storedChallenger, address(0));
+    }
+
+    function test_revert_proveChallengeFraudulent_nonexistentChallenge()
+        public
+    {
+        (
+            RegisterAndDelegateResult memory result,
+            PreconfStructs.SignedCommitment memory commitment,
+            PreconfStructs.InclusionProof memory inclusionProof
+        ) = setupSlash(1);
+
+        // Try to prove fraudulent for a challenge that doesn't exist
+        vm.expectRevert(PreconfStructs.ChallengeDoesNotExist.selector);
+        slasher.proveChallengeFraudulent(
+            result.signedDelegation.delegation,
+            commitment,
+            inclusionProof
+        );
+    }
 
     // =========== Helper functions ===========
 
