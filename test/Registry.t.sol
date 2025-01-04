@@ -61,7 +61,8 @@ contract RegistryTest is UnitTestHelper {
 
         registrations[0] = _createRegistration(SECRET_KEY_1, operator, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: minCollateral }(registrations, operator, unregistrationDelay);
+        bytes32 registrationRoot =
+            registry.register{ value: minCollateral }(registrations, operator, unregistrationDelay);
 
         _assertRegistration(
             registrationRoot,
@@ -84,7 +85,8 @@ contract RegistryTest is UnitTestHelper {
 
         registrations[0] = _createRegistration(SECRET_KEY_1, operator, unregistrationDelay);
 
-        bytes32 registrationRoot = registry.register{ value: minCollateral }(registrations, operator, unregistrationDelay);
+        bytes32 registrationRoot =
+            registry.register{ value: minCollateral }(registrations, operator, unregistrationDelay);
 
         _assertRegistration(
             registrationRoot,
@@ -146,7 +148,14 @@ contract RegistryTest is UnitTestHelper {
         assertEq(rewardCollateralWei, minCollateral, "Wrong rewardCollateralWei amount");
 
         _verifySlashingBalances(
-            challenger, operator, 0, rewardCollateralWei, collateral, challengerBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+            challenger,
+            operator,
+            0,
+            rewardCollateralWei,
+            collateral,
+            challengerBalanceBefore,
+            operatorBalanceBefore,
+            urcBalanceBefore
         );
 
         _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
@@ -196,7 +205,14 @@ contract RegistryTest is UnitTestHelper {
         );
 
         _verifySlashingBalances(
-            operator, thief, 0, rewardCollateralWei, collateral, thiefBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+            operator,
+            thief,
+            0,
+            rewardCollateralWei,
+            collateral,
+            thiefBalanceBefore,
+            operatorBalanceBefore,
+            urcBalanceBefore
         );
 
         // ensure operator was deleted
@@ -279,7 +295,14 @@ contract RegistryTest is UnitTestHelper {
         uint256 rewardCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            challenger, operator, 0, rewardCollateralWei, collateral, challengerBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+            challenger,
+            operator,
+            0,
+            rewardCollateralWei,
+            collateral,
+            challengerBalanceBefore,
+            operatorBalanceBefore,
+            urcBalanceBefore
         );
     }
 
@@ -321,7 +344,14 @@ contract RegistryTest is UnitTestHelper {
         uint256 rewardCollateralWei = registry.slashRegistration(registrationRoot, registrations[0], proof, leafIndex);
 
         _verifySlashingBalances(
-            operator, thief, 0, rewardCollateralWei, collateral, thiefBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+            operator,
+            thief,
+            0,
+            rewardCollateralWei,
+            collateral,
+            thiefBalanceBefore,
+            operatorBalanceBefore,
+            urcBalanceBefore
         );
     }
 
@@ -409,7 +439,14 @@ contract RegistryTest is UnitTestHelper {
             vm.startPrank(operator);
             registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                operator, thief, 0, minCollateral, minCollateral, thiefBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+                operator,
+                thief,
+                0,
+                minCollateral,
+                minCollateral,
+                thiefBalanceBefore,
+                operatorBalanceBefore,
+                urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
@@ -456,7 +493,14 @@ contract RegistryTest is UnitTestHelper {
             vm.startPrank(operator);
             registry.slashRegistration(registrationRoot, registrations[i], proof, i);
             _verifySlashingBalances(
-                operator, thief, 0, minCollateral, minCollateral, thiefBalanceBefore, operatorBalanceBefore, urcBalanceBefore
+                operator,
+                thief,
+                0,
+                minCollateral,
+                minCollateral,
+                thiefBalanceBefore,
+                operatorBalanceBefore,
+                urcBalanceBefore
             );
 
             _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);

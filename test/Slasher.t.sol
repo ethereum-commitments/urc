@@ -75,7 +75,7 @@ contract DummySlasherTest is UnitTestHelper {
             dummySlasher.REWARD_AMOUNT_GWEI(),
             result.signedDelegation.delegation.proposerPubKey
         );
-        
+
         (uint256 gotSlashAmountGwei, uint256 gotRewardAmountGwei) = registry.slashCommitment(
             result.registrationRoot,
             result.registrations[leafIndex].signature,
