@@ -1,5 +1,7 @@
 # Universal Registry Contract
 
+**These standards are currently under review / feedback and are not audited.**
+
 The URC is a universal contract for… 
 - anyone to **register** for proposer commitments
 - anyone to **slash** proposers that break commitments
