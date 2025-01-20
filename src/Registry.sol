@@ -16,6 +16,7 @@ contract Registry is IRegistry {
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200; // 1 day
+    uint256 public constant OPT_IN_DELAY = 7200; // 1 day cooldown after opting out
     address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
     bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
     uint256 public ETH2_GENESIS_TIMESTAMP;
@@ -64,13 +65,12 @@ contract Registry is IRegistry {
             revert OperatorAlreadyRegistered();
         }
 
-        registrations[registrationRoot] = Operator({
-            withdrawalAddress: withdrawalAddress,
-            collateralGwei: uint56(msg.value / 1 gwei),
-            registeredAt: uint32(block.number),
-            unregistrationDelay: unregistrationDelay,
-            unregisteredAt: type(uint32).max
-        });
+        Operator storage newOperator = registrations[registrationRoot];
+        newOperator.withdrawalAddress = withdrawalAddress;
+        newOperator.collateralGwei = uint56(msg.value / 1 gwei);
+        newOperator.registeredAt = uint32(block.number);
+        newOperator.unregistrationDelay = unregistrationDelay;
+        newOperator.unregisteredAt = type(uint32).max;
 
         emit OperatorRegistered(registrationRoot, msg.value, unregistrationDelay);
     }
@@ -210,7 +210,7 @@ contract Registry is IRegistry {
     }
 
     /// @notice Slashes an operator for breaking a commitment
-    /// @dev The function verifies `proof` to first ensure the operator's key is in the registry, then verifies the `signedDelegation` was signed by the key. If the fraud proof window has passed, the URC will call the `slash()` function of the Slasher contract specified in the `signedDelegation`. The Slasher contract will determine if the operator has broken a commitment and return the amount of GWEI to be slashed at the URC.
+    /// @dev The function verifies `proof` to first ensure the operator's key is in the registry, then verifies the `signedDelegation` was signed by the key. If the fraud proof window has passed, the URC will call the `slashWithDelegation()` function of the Slasher contract specified in the `signedDelegation`. The Slasher contract will determine if the operator has broken a commitment and return the amount of GWEI to be slashed at the URC.
     /// @dev The function will delete the operator's registration, transfer `slashAmountGwei` to the caller, and return any remaining funds to the operator's withdrawal address.
     /// @dev The function will revert if the operator has not registered, if the fraud proof window has not passed, if the operator has already unregistered, or if the proof is invalid.
     /// @param registrationRoot The merkle root generated and stored from the register() function
@@ -254,9 +254,56 @@ contract Registry is IRegistry {
         // Reward, burn, and return Ether
         _executeSlashingTransfers(operatorWithdrawalAddress, collateralGwei, slashAmountGwei, rewardAmountGwei);
 
-        emit OperatorSlashed(
+        emit OperatorSlashedWithDelegation(
             registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey
         );
+    }
+
+    /// @notice Slashes an operator for breaking a commitment in a protocol they opted into
+    /// @dev The function will call the `slash()` function of the specified protocol to determine if the operator has broken a commitment.
+    /// @dev The function will delete the operator's registration, transfer `slashAmountGwei` to the caller, and return any remaining funds to the operator's withdrawal address.
+    /// @dev The function will revert if the operator has not registered, if the operator is not opted into the protocol, if the fraud proof window has not passed, if the operator has already unregistered, or if the proof is invalid.
+    /// @param registrationRoot The merkle root generated and stored from the register() function
+    /// @param protocol The address of the protocol contract implementing ISlasher
+    /// @param evidence Arbitrary evidence to slash the operator, required by the protocol contract
+    /// @return slashAmountGwei The amount of GWEI slashed
+    /// @return rewardAmountGwei The amount of GWEI rewarded to the caller
+    function slashOptedInOperator(bytes32 registrationRoot, address protocol, bytes calldata evidence)
+        external
+        returns (uint256 slashAmountGwei, uint256 rewardAmountGwei)
+    {
+        Operator storage operator = registrations[registrationRoot];
+        address operatorWithdrawalAddress = operator.withdrawalAddress;
+
+        if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
+            revert FraudProofWindowNotMet();
+        }
+
+        if (operator.unregisteredAt != type(uint32).max) {
+            revert OperatorAlreadyUnregistered();
+        }
+
+        // Check if operator is opted into protocol
+        if (operator.optIns[protocol].optedOutAt >= operator.optIns[protocol].optedInAt) {
+            revert NotOptedIn();
+        }
+
+        uint256 collateralGwei = operator.collateralGwei;
+
+        // Call protocol's slash function
+        (slashAmountGwei, rewardAmountGwei) = ISlasher(protocol).slash(evidence, msg.sender);
+
+        if (slashAmountGwei > collateralGwei) {
+            revert SlashAmountExceedsCollateral();
+        }
+
+        // Delete the operator
+        delete registrations[registrationRoot];
+
+        // Reward, burn, and return Ether
+        _executeSlashingTransfers(operatorWithdrawalAddress, collateralGwei, slashAmountGwei, rewardAmountGwei);
+
+        emit OperatorSlashed(registrationRoot, slashAmountGwei, rewardAmountGwei);
     }
 
     /// @notice Adds collateral to an Operator struct
@@ -274,6 +321,66 @@ contract Registry is IRegistry {
 
         operator.collateralGwei += uint56(msg.value / 1 gwei);
         emit CollateralAdded(registrationRoot, operator.collateralGwei);
+    }
+
+    /// @notice Opts into a protocol for an operator
+    /// @dev The function will revert if the operator has not registered or if the caller is not the operator's withdrawal address
+    /// @param registrationRoot The merkle root generated and stored from the register() function
+    /// @param protocol The address of the protocol to opt into
+    function optInToProtocol(bytes32 registrationRoot, address protocol) external {
+        Operator storage operator = registrations[registrationRoot];
+
+        if (operator.withdrawalAddress != msg.sender) {
+            revert WrongOperator();
+        }
+
+        // Cache the OptIn struct
+        OptIn storage optIn = operator.optIns[protocol];
+
+        // Check if already opted in
+        if (optIn.optedOutAt < optIn.optedInAt) {
+            revert AlreadyOptedIn();
+        }
+
+        // If previously opted out, enforce delay before allowing new opt-in
+        if (optIn.optedOutAt != 0 && block.timestamp < optIn.optedOutAt + OPT_IN_DELAY) {
+            revert OptInDelayNotMet();
+        }
+
+        optIn.optedInAt = uint64(block.timestamp);
+        optIn.optedOutAt = 0;
+
+        emit ProtocolOptIn(registrationRoot, protocol, block.timestamp);
+    }
+
+    /// @notice Opts out of a protocol for an operator
+    /// @dev The function will revert if the operator has not registered, if the caller is not the operator's withdrawal address, or if the operator is not opted into the protocol
+    /// @param registrationRoot The merkle root generated and stored from the register() function
+    /// @param protocol The address of the protocol to opt out of
+    function optOutOfProtocol(bytes32 registrationRoot, address protocol) external {
+        Operator storage operator = registrations[registrationRoot];
+
+        if (operator.withdrawalAddress != msg.sender) {
+            revert WrongOperator();
+        }
+
+        // Check if already opted out or never opted in
+        if (operator.optIns[protocol].optedOutAt >= operator.optIns[protocol].optedInAt) {
+            revert NotOptedIn();
+        }
+
+        operator.optIns[protocol].optedOutAt = uint64(block.timestamp);
+
+        emit ProtocolOptOut(registrationRoot, protocol, block.timestamp);
+    }
+
+    /// @notice Checks if an operator is opted into a protocol
+    /// @param registrationRoot The merkle root generated and stored from the register() function
+    /// @param protocol The address of the protocol to check
+    /// @return True if the operator is opted in, false otherwise
+    function isOptedIntoProtocol(bytes32 registrationRoot, address protocol) external view returns (bool) {
+        Operator storage operator = registrations[registrationRoot];
+        return operator.optIns[protocol].optedOutAt < operator.optIns[protocol].optedInAt;
     }
 
     /**
@@ -366,8 +473,9 @@ contract Registry is IRegistry {
         bytes calldata evidence,
         uint256 collateralGwei
     ) internal returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
-        (slashAmountGwei, rewardAmountGwei) =
-            ISlasher(signedDelegation.delegation.slasher).slash(signedDelegation.delegation, evidence, msg.sender);
+        (slashAmountGwei, rewardAmountGwei) = ISlasher(signedDelegation.delegation.slasher).slashWithDelegation(
+            signedDelegation.delegation, evidence, msg.sender
+        );
 
         if (slashAmountGwei > collateralGwei) {
             revert SlashAmountExceedsCollateral();

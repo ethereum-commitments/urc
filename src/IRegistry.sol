@@ -21,6 +21,11 @@ interface IRegistry {
         BLS.G2Point signature;
     }
 
+    struct OptIn {
+        uint64 optedInAt;
+        uint64 optedOutAt;
+    }
+
     /// @notice An operator of BLS key[s]
     struct Operator {
         /// The address used to deregister from the registry and claim collateral
@@ -33,6 +38,8 @@ interface IRegistry {
         uint32 unregisteredAt;
         /// The number of blocks that must elapse between deregistering and claiming
         uint16 unregistrationDelay;
+        /// Protocols that the operator has opted to provide commitments for
+        mapping(address protocol => OptIn) optIns;
     }
 
     /**
@@ -63,12 +70,18 @@ interface IRegistry {
         bytes32 registrationRoot, address challenger, address withdrawalAddress, Registration reg
     );
 
-    /// @notice Emitted when an operator is slashed for breaking a commitment
+    /// @notice Emitted when an operator is slashed for breaking a commitment (without delegation)
     /// @param registrationRoot The merkle root of the registration merkle tree
     /// @param slashAmountGwei The amount of GWEI slashed
     /// @param rewardAmountGwei The amount of GWEI rewarded to the caller
-    /// @param pubkey The BLS public key
-    event OperatorSlashed(
+    event OperatorSlashed(bytes32 registrationRoot, uint256 slashAmountGwei, uint256 rewardAmountGwei);
+
+    /// @notice Emitted when an operator is slashed for breaking a commitment with delegation
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param slashAmountGwei The amount of GWEI slashed
+    /// @param rewardAmountGwei The amount of GWEI rewarded to the caller
+    /// @param pubkey The BLS public key used in the delegation
+    event OperatorSlashedWithDelegation(
         bytes32 registrationRoot, uint256 slashAmountGwei, uint256 rewardAmountGwei, BLS.G1Point pubkey
     );
 
@@ -86,6 +99,18 @@ interface IRegistry {
     /// @param registrationRoot The merkle root of the registration merkle tree
     /// @param collateralGwei The amount of GWEI added
     event CollateralAdded(bytes32 registrationRoot, uint256 collateralGwei);
+
+    /// @notice Emitted when an operator opts into a protocol
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param protocol The address of the protocol
+    /// @param timestamp The timestamp when the opt-in occurred
+    event ProtocolOptIn(bytes32 registrationRoot, address protocol, uint256 timestamp);
+
+    /// @notice Emitted when an operator opts out of a protocol
+    /// @param registrationRoot The merkle root of the registration merkle tree
+    /// @param protocol The address of the protocol
+    /// @param timestamp The timestamp when the opt-out occurred
+    event ProtocolOptOut(bytes32 registrationRoot, address protocol, uint256 timestamp);
 
     /**
      *
@@ -114,6 +139,10 @@ interface IRegistry {
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
     error OperatorAlreadyUnregistered();
+    error AlreadyOptedIn();
+    error NotOptedIn();
+    error OptInDelayNotMet();
+
     /**
      *
      *                                *
@@ -121,7 +150,6 @@ interface IRegistry {
      *                                *
      *
      */
-
     function register(Registration[] calldata registrations, address withdrawalAddress, uint16 unregistrationDelay)
         external
         payable
@@ -153,4 +181,10 @@ interface IRegistry {
         ISlasher.SignedDelegation calldata signedDelegation,
         bytes calldata evidence
     ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
+
+    function optInToProtocol(bytes32 registrationRoot, address protocol) external;
+
+    function optOutOfProtocol(bytes32 registrationRoot, address protocol) external;
+
+    function isOptedIntoProtocol(bytes32 registrationRoot, address protocol) external view returns (bool);
 }
