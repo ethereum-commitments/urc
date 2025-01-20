@@ -33,7 +33,18 @@ interface ISlasher {
     /// @param challenger The address of the challenger
     /// @return slashAmountGwei The amount of Gwei slashed
     /// @return rewardAmountGwei The amount of Gwei rewarded to the caller
-    function slash(Delegation calldata delegation, bytes calldata evidence, address challenger)
+    function slashWithDelegation(Delegation calldata delegation, bytes calldata evidence, address challenger)
+        external
+        returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
+
+    /// @notice Slash a proposer's BLS key for a given delegation
+    /// @dev The URC will call this function to slash a registered operator who has opted into
+    /// this slasher if provided with an evidence
+    /// @param evidence Arbitrary evidence for the slashing
+    /// @param challenger The address of the challenger
+    /// @return slashAmountGwei The amount of Gwei slashed
+    /// @return rewardAmountGwei The amount of Gwei rewarded to the caller
+    function slash(bytes calldata evidence, address challenger)
         external
         returns (uint256 slashAmountGwei, uint256 rewardAmountGwei);
 
