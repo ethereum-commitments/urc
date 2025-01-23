@@ -12,10 +12,14 @@ contract Registry is IRegistry {
     /// @notice Mapping from registration merkle roots to Operator structs
     mapping(bytes32 registrationRoot => Operator) public registrations;
 
+    /// @notice Mapping to track if a slashing has occurred before with same input
+    mapping(bytes32 slashingDigest => bool) public slashedBefore;
+
     // Constants
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200; // 1 day
+    uint256 public constant SLASH_WINDOW = 7200; // 1 day
     address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
     bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
     uint256 public ETH2_GENESIS_TIMESTAMP;
@@ -69,7 +73,8 @@ contract Registry is IRegistry {
             collateralGwei: uint56(msg.value / 1 gwei),
             registeredAt: uint32(block.number),
             unregistrationDelay: unregistrationDelay,
-            unregisteredAt: type(uint32).max
+            unregisteredAt: type(uint32).max,
+            slashedAt: 0
         });
 
         emit OperatorRegistered(registrationRoot, msg.value, unregistrationDelay);
@@ -211,8 +216,8 @@ contract Registry is IRegistry {
 
     /// @notice Slashes an operator for breaking a commitment
     /// @dev The function verifies `proof` to first ensure the operator's key is in the registry, then verifies the `signedDelegation` was signed by the key. If the fraud proof window has passed, the URC will call the `slash()` function of the Slasher contract specified in the `signedDelegation`. The Slasher contract will determine if the operator has broken a commitment and return the amount of GWEI to be slashed at the URC.
-    /// @dev The function will delete the operator's registration, transfer `slashAmountGwei` to the caller, and return any remaining funds to the operator's withdrawal address.
-    /// @dev The function will revert if the operator has not registered, if the fraud proof window has not passed, if the operator has already unregistered, or if the proof is invalid.
+    /// @dev The function will burn `slashAmountGwei` and transfer `rewardAmountGwei` to the caller. It will also save the timestamp of the slashing to start the `SLASH_WINDOW` in case of multiple slashings.
+    /// @dev The function will revert if the operator has not registered, if the fraud proof window has not passed, if the operator has already unregistered, if the proof is invalid, or if the slash window has expired.
     /// @param registrationRoot The merkle root generated and stored from the register() function
     /// @param registrationSignature The signature from the operator's previously registered `Registration`
     /// @param proof The merkle proof to verify the operator's key is in the registry
@@ -230,7 +235,12 @@ contract Registry is IRegistry {
         bytes calldata evidence
     ) external returns (uint256 slashAmountGwei, uint256 rewardAmountGwei) {
         Operator storage operator = registrations[registrationRoot];
-        address operatorWithdrawalAddress = operator.withdrawalAddress;
+
+        bytes32 slashingDigest = keccak256(abi.encode(signedDelegation, registrationRoot));
+
+        if (slashedBefore[slashingDigest]) {
+            revert SlashingAlreadyOccurred();
+        }
 
         if (block.number < operator.registeredAt + FRAUD_PROOF_WINDOW) {
             revert FraudProofWindowNotMet();
@@ -243,16 +253,25 @@ contract Registry is IRegistry {
             revert OperatorAlreadyUnregistered();
         }
 
+        if (operator.slashedAt != 0 && block.number > operator.slashedAt + SLASH_WINDOW) {
+            revert SlashWindowExpired();
+        }
+
         uint256 collateralGwei =
             _verifyDelegation(registrationRoot, registrationSignature, proof, leafIndex, signedDelegation);
 
         (slashAmountGwei, rewardAmountGwei) = _executeSlash(signedDelegation, evidence, collateralGwei);
 
-        // Delete the operator
-        delete registrations[registrationRoot];
+        // Reward challenger + burn Ether
+        _executeSlashingTransfers(slashAmountGwei, rewardAmountGwei);
 
-        // Reward, burn, and return Ether
-        _executeSlashingTransfers(operatorWithdrawalAddress, collateralGwei, slashAmountGwei, rewardAmountGwei);
+        // Save timestamp only once
+        if (operator.slashedAt == 0) {
+            operator.slashedAt = uint32(block.number);
+        }
+
+        // Prevent same slashing from occurring again
+        slashedBefore[slashingDigest] = true;
 
         emit OperatorSlashed(
             registrationRoot, slashAmountGwei, rewardAmountGwei, signedDelegation.delegation.proposerPubKey
@@ -274,6 +293,35 @@ contract Registry is IRegistry {
 
         operator.collateralGwei += uint56(msg.value / 1 gwei);
         emit CollateralAdded(registrationRoot, operator.collateralGwei);
+    }
+
+    function claimSlashedCollateral(bytes32 registrationRoot) external {
+        Operator storage operator = registrations[registrationRoot];
+        address operatorWithdrawalAddress = operator.withdrawalAddress;
+        uint256 collateralGwei = operator.collateralGwei;
+
+        // Check that they've been slashed
+        if (operator.slashedAt == 0) {
+            revert NotSlashed();
+        }
+
+        // Check that enough time has passed
+        if (block.number < operator.slashedAt + SLASH_WINDOW) {
+            revert SlashWindowNotMet();
+        }
+
+        uint256 amountToReturn = collateralGwei * 1 gwei;
+
+        // Clear operator info
+        delete registrations[registrationRoot];
+
+        // Transfer to operator
+        (bool success,) = operatorWithdrawalAddress.call{ value: amountToReturn }("");
+        if (!success) {
+            revert EthTransferFailed();
+        }
+
+        emit CollateralClaimed(registrationRoot, collateralGwei);
     }
 
     /**
@@ -374,15 +422,11 @@ contract Registry is IRegistry {
         }
     }
 
-    /// @notice Distributes rewards to the challenger, burns the slash amount, and returns any remaining funds to the operator
-    /// @dev The function will revert if the transfer to the slasher fails, if the transfer to the operator fails, or if the rewardAmountGwei is less than `MIN_COLLATERAL`.
-    /// @param withdrawalAddress The address to return any remaining funds to
-    /// @param collateralGwei The operator's collateral amount in GWEI
-    /// @param slashAmountGwei The amount of GWEI to be transferred to the caller
+    /// @notice Distributes rewards to the challenger and burns the slash amount
+    /// @dev The function will revert if the transfer to the slasher fails or if the rewardAmountGwei is less than `MIN_COLLATERAL`.
+    /// @param slashAmountGwei The amount of GWEI to be burned
     /// @param rewardAmountGwei The amount of GWEI to be transferred to the caller
     function _executeSlashingTransfers(
-        address withdrawalAddress,
-        uint256 collateralGwei,
         uint256 slashAmountGwei,
         uint256 rewardAmountGwei
     ) internal {
@@ -394,12 +438,6 @@ contract Registry is IRegistry {
 
         // Transfer to the challenger
         (success,) = msg.sender.call{ value: rewardAmountGwei * 1 gwei }("");
-        if (!success) {
-            revert EthTransferFailed();
-        }
-
-        // Return any remaining funds to Operator
-        (success,) = withdrawalAddress.call{ value: (collateralGwei - slashAmountGwei - rewardAmountGwei) * 1 gwei }("");
         if (!success) {
             revert EthTransferFailed();
         }

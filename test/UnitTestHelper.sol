@@ -56,7 +56,8 @@ contract UnitTestHelper is Test {
             uint56 collateral,
             uint32 registeredAt,
             uint32 unregisteredAt,
-            uint16 unregistrationDelay
+            uint16 unregistrationDelay,
+            uint32 slashedAt
         ) = registry.registrations(registrationRoot);
 
         assertEq(withdrawalAddress, expectedWithdrawalAddress, "Wrong withdrawal address");

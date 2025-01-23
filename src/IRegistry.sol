@@ -33,6 +33,8 @@ interface IRegistry {
         uint32 unregisteredAt;
         /// The number of blocks that must elapse between deregistering and claiming
         uint16 unregistrationDelay;
+        /// The block number when slashed from breaking a commitment
+        uint32 slashedAt;
     }
 
     /**
@@ -114,6 +116,10 @@ interface IRegistry {
     error FraudProofChallengeInvalid();
     error CollateralOverflow();
     error OperatorAlreadyUnregistered();
+    error SlashWindowExpired();
+    error SlashingAlreadyOccurred();
+    error NotSlashed();
+    error SlashWindowNotMet();
     /**
      *
      *                                *

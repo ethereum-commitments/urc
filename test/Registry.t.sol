@@ -533,7 +533,7 @@ contract RegistryTest is UnitTestHelper {
         emit IRegistry.OperatorUnregistered(registrationRoot, uint32(block.number));
         registry.unregister(registrationRoot);
 
-        (,, uint32 registeredAt, uint32 unregisteredAt,) = registry.registrations(registrationRoot);
+        (,, uint32 registeredAt, uint32 unregisteredAt,,) = registry.registrations(registrationRoot);
         assertEq(unregisteredAt, uint32(block.number), "Wrong unregistration block");
         assertEq(registeredAt, uint32(block.number), "Wrong registration block"); // Should remain unchanged
     }
@@ -596,7 +596,7 @@ contract RegistryTest is UnitTestHelper {
         assertEq(operator.balance, balanceBefore + collateral, "Collateral not returned");
 
         // Verify registration was deleted
-        (address withdrawalAddress,,,,) = registry.registrations(registrationRoot);
+        (address withdrawalAddress,,,,,) = registry.registrations(registrationRoot);
         assertEq(withdrawalAddress, address(0), "Registration not deleted");
     }
 
@@ -676,7 +676,7 @@ contract RegistryTest is UnitTestHelper {
         emit IRegistry.CollateralAdded(registrationRoot, expectedCollateralGwei);
         registry.addCollateral{ value: addAmount }(registrationRoot);
 
-        (, uint56 collateralGwei,,,) = registry.registrations(registrationRoot);
+        (, uint56 collateralGwei,,,,) = registry.registrations(registrationRoot);
         assertEq(collateralGwei, expectedCollateralGwei, "Collateral not added");
     }
 
@@ -696,7 +696,7 @@ contract RegistryTest is UnitTestHelper {
         vm.expectRevert(IRegistry.CollateralOverflow.selector);
         registry.addCollateral{ value: addAmount }(registrationRoot);
 
-        (, uint56 collateralGwei,,,) = registry.registrations(registrationRoot);
+        (, uint56 collateralGwei,,,,) = registry.registrations(registrationRoot);
         assertEq(collateralGwei, uint56(collateral / 1 gwei), "Collateral should not be changed");
     }
 
@@ -742,7 +742,7 @@ contract RegistryTest is UnitTestHelper {
         );
 
         // Verify registration was deleted
-        (address withdrawalAddress,,,,) = registry.registrations(reentrantContract.registrationRoot());
+        (address withdrawalAddress,,,,,) = registry.registrations(reentrantContract.registrationRoot());
         assertEq(withdrawalAddress, address(0), "Registration not deleted");
     }
 
