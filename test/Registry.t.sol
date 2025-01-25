@@ -70,7 +70,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(minCollateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         // Attempt duplicate registration
@@ -94,7 +95,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(minCollateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         // generate merkle proof
@@ -132,7 +134,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay + 1
+            unregistrationDelay + 1,
+            0
         );
 
         // generate merkle proof
@@ -158,7 +161,7 @@ contract RegistryTest is UnitTestHelper {
             urcBalanceBefore
         );
 
-        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
+        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0, 0);
     }
 
     function test_slashRegistrationHeight1_DifferentWithdrawalAddress() public {
@@ -185,7 +188,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         // generate merkle proof
@@ -216,7 +220,7 @@ contract RegistryTest is UnitTestHelper {
         );
 
         // ensure operator was deleted
-        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
+        _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0, 0);
     }
 
     function test_verifyMerkleProofHeight2() public {
@@ -237,7 +241,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         bytes32[] memory leaves = _hashToLeaves(registrations);
@@ -280,7 +285,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay + 1 // confirm different delay
+            unregistrationDelay + 1, // confirm different delay
+            0
         );
 
         bytes32[] memory leaves = _hashToLeaves(registrations);
@@ -328,7 +334,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         // Create proof for operator's registration
@@ -375,7 +382,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         bytes32[] memory leaves = _hashToLeaves(registrations);
@@ -449,7 +457,7 @@ contract RegistryTest is UnitTestHelper {
                 urcBalanceBefore
             );
 
-            _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
+            _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0, 0);
 
             // Re-register to reset the state
             registrationRoot = registry.register{ value: minCollateral }(
@@ -503,7 +511,7 @@ contract RegistryTest is UnitTestHelper {
                 urcBalanceBefore
             );
 
-            _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0);
+            _assertRegistration(registrationRoot, address(0), 0, 0, 0, 0, 0);
 
             // Re-register to reset the state
             registrationRoot = registry.register{ value: minCollateral }(
@@ -533,9 +541,9 @@ contract RegistryTest is UnitTestHelper {
         emit IRegistry.OperatorUnregistered(registrationRoot, uint32(block.number));
         registry.unregister(registrationRoot);
 
-        (,, uint32 registeredAt, uint32 unregisteredAt,,) = registry.registrations(registrationRoot);
-        assertEq(unregisteredAt, uint32(block.number), "Wrong unregistration block");
-        assertEq(registeredAt, uint32(block.number), "Wrong registration block"); // Should remain unchanged
+        IRegistry.Operator memory operatorData = getRegistrationData(registrationRoot);
+        assertEq(operatorData.unregisteredAt, uint32(block.number), "Wrong unregistration block");
+        assertEq(operatorData.registeredAt, uint32(block.number), "Wrong registration block"); // Should remain unchanged
     }
 
     function test_unregister_wrongOperator() public {
@@ -596,8 +604,8 @@ contract RegistryTest is UnitTestHelper {
         assertEq(operator.balance, balanceBefore + collateral, "Collateral not returned");
 
         // Verify registration was deleted
-        (address withdrawalAddress,,,,,) = registry.registrations(registrationRoot);
-        assertEq(withdrawalAddress, address(0), "Registration not deleted");
+        IRegistry.Operator memory operatorData = getRegistrationData(registrationRoot);
+        assertEq(operatorData.withdrawalAddress, address(0), "Registration not deleted");
     }
 
     function test_claimCollateral_notUnregistered() public {
@@ -676,8 +684,8 @@ contract RegistryTest is UnitTestHelper {
         emit IRegistry.CollateralAdded(registrationRoot, expectedCollateralGwei);
         registry.addCollateral{ value: addAmount }(registrationRoot);
 
-        (, uint56 collateralGwei,,,,) = registry.registrations(registrationRoot);
-        assertEq(collateralGwei, expectedCollateralGwei, "Collateral not added");
+        IRegistry.Operator memory operatorData = getRegistrationData(registrationRoot);
+        assertEq(operatorData.collateralGwei, expectedCollateralGwei, "Collateral not added");
     }
 
     function test_addCollateral_overflow() public {
@@ -696,8 +704,8 @@ contract RegistryTest is UnitTestHelper {
         vm.expectRevert(IRegistry.CollateralOverflow.selector);
         registry.addCollateral{ value: addAmount }(registrationRoot);
 
-        (, uint56 collateralGwei,,,,) = registry.registrations(registrationRoot);
-        assertEq(collateralGwei, uint56(collateral / 1 gwei), "Collateral should not be changed");
+        IRegistry.Operator memory operatorData = getRegistrationData(registrationRoot);
+        assertEq(operatorData.collateralGwei, uint56(collateral / 1 gwei), "Collateral should not be changed");
     }
 
     function test_addCollateral_notRegistered() public {
@@ -742,8 +750,8 @@ contract RegistryTest is UnitTestHelper {
         );
 
         // Verify registration was deleted
-        (address withdrawalAddress,,,,,) = registry.registrations(reentrantContract.registrationRoot());
-        assertEq(withdrawalAddress, address(0), "Registration not deleted");
+        IRegistry.Operator memory operatorData = getRegistrationData(reentrantContract.registrationRoot());
+        assertEq(operatorData.withdrawalAddress, address(0), "Registration not deleted");
     }
 
     // For setup we register() -> slashRegistration()
@@ -770,7 +778,8 @@ contract RegistryTest is UnitTestHelper {
             uint56(reentrantContract.collateral() / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
 
         // generate merkle proof
@@ -779,7 +788,7 @@ contract RegistryTest is UnitTestHelper {
 
         // operator can slash the registration
         vm.startPrank(operator);
-        uint256 slashedCollateralWei = registry.slashRegistration(
+        registry.slashRegistration(
             reentrantContract.registrationRoot(),
             registrations[0],
             proof,

@@ -49,22 +49,16 @@ contract UnitTestHelper is Test {
         uint56 expectedCollateral,
         uint32 expectedRegisteredAt,
         uint32 expectedUnregisteredAt,
-        uint16 expectedUnregistrationDelay
-    ) internal view {
-        (
-            address withdrawalAddress,
-            uint56 collateral,
-            uint32 registeredAt,
-            uint32 unregisteredAt,
-            uint16 unregistrationDelay,
-            uint32 slashedAt
-        ) = registry.registrations(registrationRoot);
-
-        assertEq(withdrawalAddress, expectedWithdrawalAddress, "Wrong withdrawal address");
-        assertEq(collateral, expectedCollateral, "Wrong collateral amount");
-        assertEq(registeredAt, expectedRegisteredAt, "Wrong registration block");
-        assertEq(unregisteredAt, expectedUnregisteredAt, "Wrong unregistration block");
-        assertEq(unregistrationDelay, expectedUnregistrationDelay, "Wrong unregistration delay");
+        uint16 expectedUnregistrationDelay,
+        uint32 expectedSlashedAt
+    ) internal {
+        IRegistry.Operator memory operatorData = getRegistrationData(registrationRoot);
+        assertEq(operatorData.withdrawalAddress, expectedWithdrawalAddress, "Wrong withdrawal address");
+        assertEq(operatorData.collateralGwei, expectedCollateral, "Wrong collateral amount");
+        assertEq(operatorData.registeredAt, expectedRegisteredAt, "Wrong registration block");
+        assertEq(operatorData.unregisteredAt, expectedUnregisteredAt, "Wrong unregistration block");
+        assertEq(operatorData.unregistrationDelay, expectedUnregistrationDelay, "Wrong unregistration delay");
+        assertEq(operatorData.slashedAt, expectedSlashedAt, "Wrong slashed block");
     }
 
     function _hashToLeaves(IRegistry.Registration[] memory _registrations) internal pure returns (bytes32[] memory) {
@@ -100,7 +94,7 @@ contract UnitTestHelper is Test {
         uint256 _challengerBalanceBefore,
         uint256 _operatorBalanceBefore,
         uint256 _urcBalanceBefore
-    ) internal view {
+    ) internal {
         assertEq(_challenger.balance, _challengerBalanceBefore + _rewardAmount, "challenger didn't receive reward");
         assertEq(
             _operator.balance,
@@ -108,6 +102,37 @@ contract UnitTestHelper is Test {
             "operator didn't receive remaining funds"
         );
         assertEq(address(registry).balance, _urcBalanceBefore - _totalCollateral, "urc balance incorrect");
+    }
+
+    function _verifySlashCommitmentBalances(
+        address _challenger,
+        uint256 _slashedAmount,
+        uint256 _rewardAmount,
+        uint256 _challengerBalanceBefore,
+        uint256 _urcBalanceBefore
+    ) internal {
+        assertEq(_challenger.balance, _challengerBalanceBefore + _rewardAmount, "challenger didn't receive reward");
+        assertEq(address(registry).balance, _urcBalanceBefore - _slashedAmount - _rewardAmount, "urc balance incorrect");
+    }
+
+    function getRegistrationData(bytes32 registrationRoot) public view returns (IRegistry.Operator memory) {
+        (
+            address withdrawalAddress,
+            uint56 collateralGwei,
+            uint32 registeredAt,
+            uint32 unregisteredAt,
+            uint16 unregistrationDelay,
+            uint32 slashedAt
+        ) = registry.registrations(registrationRoot);
+
+        return IRegistry.Operator({
+            withdrawalAddress: withdrawalAddress,
+            collateralGwei: collateralGwei,
+            registeredAt: registeredAt,
+            unregisteredAt: unregisteredAt,
+            unregistrationDelay: unregistrationDelay,
+            slashedAt: slashedAt
+        });
     }
 
     function basicRegistration(uint256 secretKey, uint256 collateral, address withdrawalAddress)
@@ -126,7 +151,8 @@ contract UnitTestHelper is Test {
             uint56(collateral / 1 gwei),
             uint32(block.number),
             type(uint32).max,
-            unregistrationDelay
+            unregistrationDelay,
+            0
         );
     }
 

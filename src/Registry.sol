@@ -19,7 +19,7 @@ contract Registry is IRegistry {
     uint256 public constant MIN_COLLATERAL = 0.1 ether;
     uint256 public constant MIN_UNREGISTRATION_DELAY = 64; // Two epochs
     uint256 public constant FRAUD_PROOF_WINDOW = 7200; // 1 day
-    uint256 public constant SLASH_WINDOW = 7200; // 1 day
+    uint32 public constant SLASH_WINDOW = 7200; // 1 day
     address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
     bytes public constant DOMAIN_SEPARATOR = "0x00435255"; // "URC" in little endian
     uint256 public ETH2_GENESIS_TIMESTAMP;
@@ -270,6 +270,9 @@ contract Registry is IRegistry {
             operator.slashedAt = uint32(block.number);
         }
 
+        // Decrement operator's collateral
+        operator.collateralGwei -= uint56(slashAmountGwei + rewardAmountGwei);
+
         // Prevent same slashing from occurring again
         slashedBefore[slashingDigest] = true;
 
@@ -426,10 +429,7 @@ contract Registry is IRegistry {
     /// @dev The function will revert if the transfer to the slasher fails or if the rewardAmountGwei is less than `MIN_COLLATERAL`.
     /// @param slashAmountGwei The amount of GWEI to be burned
     /// @param rewardAmountGwei The amount of GWEI to be transferred to the caller
-    function _executeSlashingTransfers(
-        uint256 slashAmountGwei,
-        uint256 rewardAmountGwei
-    ) internal {
+    function _executeSlashingTransfers(uint256 slashAmountGwei, uint256 rewardAmountGwei) internal {
         // Burn the slash amount
         (bool success,) = BURNER_ADDRESS.call{ value: slashAmountGwei * 1 gwei }("");
         if (!success) {

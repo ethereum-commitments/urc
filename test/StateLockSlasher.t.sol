@@ -14,6 +14,7 @@ import { MerkleTrie } from "../example/lib/trie/MerkleTrie.sol";
 import { SecureMerkleTrie } from "../example/lib/trie/SecureMerkleTrie.sol";
 import { TransactionDecoder } from "../example/lib/TransactionDecoder.sol";
 import { Registry } from "../src/Registry.sol";
+import { IRegistry } from "../src/IRegistry.sol";
 import { BLS } from "../src/lib/BLS.sol";
 import { MerkleTree } from "../src/lib/MerkleTree.sol";
 import { PreconfStructs } from "../example/PreconfStructs.sol";
@@ -198,20 +199,26 @@ contract StateLockSlasherTest is UnitTestHelper {
             evidence
         );
 
-        // verify balances updated correctly
-        _verifySlashingBalances(
-            challenger,
-            operator,
-            slashAmountGwei * 1 gwei,
-            rewardAmountGwei * 1 gwei,
-            collateral,
-            challengerBalanceBefore,
-            operatorBalanceBefore,
-            urcBalanceBefore
+        _verifySlashCommitmentBalances(
+            challenger, slashAmountGwei * 1 gwei, rewardAmountGwei * 1 gwei, challengerBalanceBefore, urcBalanceBefore
         );
 
-        // Verify operator was deleted
-        _assertRegistration(result.registrationRoot, address(0), 0, 0, 0, 0);
+        // Retrieve operator data
+        IRegistry.Operator memory operatorData = getRegistrationData(result.registrationRoot);
+
+        // Verify operator's slashedAt is set
+        assertEq(operatorData.slashedAt, block.number, "slashedAt not set");
+
+        // Verify operator's collateralGwei is decremented
+        assertEq(
+            operatorData.collateralGwei,
+            collateral / 1 gwei - slashAmountGwei - rewardAmountGwei,
+            "collateralGwei not decremented"
+        );
+
+        // Verify the slashedBefore mapping is set
+        bytes32 slashingDigest = keccak256(abi.encode(result.signedDelegation, result.registrationRoot));
+        assertEq(registry.slashedBefore(slashingDigest), true, "slashedBefore not set");
     }
 
     // =========== Helper functions ===========
