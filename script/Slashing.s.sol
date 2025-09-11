@@ -26,7 +26,8 @@ contract SlashingScript is BaseScript {
         (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
 
         // different owner address for invalid registration
-        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(1, privateKey, address(1337), signingDomain, signingId, chainId);
+        IRegistry.SignedRegistration[] memory registrations =
+            _nRegistrations(1, privateKey, address(1337), signingDomain, signingId, chainId);
 
         // Get reference to the registry
         IRegistry registry = IRegistry(_registry);
@@ -84,7 +85,8 @@ contract SlashingScript is BaseScript {
         bytes32 signingId = keccak256("test-signing-id");
 
         // Generate two delegations with the same proposer and slot but different delegates
-        ISlasher.SignedDelegation[] memory delegations = _nDelegations(2, proposerPrivateKey, 1, committer, slot, signingDomain, signingId, chainId);
+        ISlasher.SignedDelegation[] memory delegations =
+            _nDelegations(2, proposerPrivateKey, 1, committer, slot, signingDomain, signingId, chainId);
 
         // Write the delegations to files
         _writeDelegation(delegations[0], delegationOneFile);
@@ -188,8 +190,11 @@ contract SlashingScript is BaseScript {
         vm.stopBroadcast();
     }
 
-    function _testDelegation(address owner, address committer, uint256 committerPrivateKey) internal returns (ISlasher.SignedDelegation memory signedDelegation) {
-                // Read the signing domain and chain ID from the config file
+    function _testDelegation(address owner, address committer, uint256 committerPrivateKey)
+        internal
+        returns (ISlasher.SignedDelegation memory signedDelegation)
+    {
+        // Read the signing domain and chain ID from the config file
         (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
 
         // hardcoded committer
