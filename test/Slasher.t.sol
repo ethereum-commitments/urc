@@ -31,6 +31,7 @@ contract SlashCommitmentTester is UnitTestHelper {
     uint256 collateral = 100 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         registry = new Registry(defaultConfig());
@@ -51,7 +52,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -60,7 +63,8 @@ contract SlashCommitmentTester is UnitTestHelper {
             basicCommitment(params.committerSecretKey, params.slasher, "");
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
         bytes memory evidence = "";
 
         // skip past fraud proof window
@@ -112,7 +116,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -120,7 +126,8 @@ contract SlashCommitmentTester is UnitTestHelper {
         ISlasher.SignedCommitment memory signedCommitment =
             basicCommitment(params.committerSecretKey, params.slasher, "");
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
         bytes memory evidence = "";
 
         // Try to slash before fraud proof window expires
@@ -138,7 +145,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -149,7 +158,8 @@ contract SlashCommitmentTester is UnitTestHelper {
         IRegistry.RegistrationProof memory proof = IRegistry.RegistrationProof({
             registrationRoot: result.registrationRoot,
             registration: result.registrations[0],
-            merkleProof: new bytes32[](1)
+            merkleProof: new bytes32[](1),
+            signingId: params.signingId
         });
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -168,7 +178,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -178,9 +190,10 @@ contract SlashCommitmentTester is UnitTestHelper {
 
         // Sign delegation with different secret key
         ISlasher.SignedDelegation memory badSignedDelegation =
-            signDelegation(SECRET_KEY_2, result.signedDelegation.delegation);
+            signDelegation(SECRET_KEY_2, result.signedDelegation.delegation, signingId, params.nonce);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -198,14 +211,17 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
         ISlasher.SignedCommitment memory signedCommitment =
             basicCommitment(params.committerSecretKey, params.slasher, "");
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -224,7 +240,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -232,7 +250,8 @@ contract SlashCommitmentTester is UnitTestHelper {
             basicCommitment(params.committerSecretKey, params.slasher, "");
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
         bytes memory evidence = "";
 
         // skip past fraud proof window
@@ -289,7 +308,9 @@ contract SlashCommitmentTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -297,7 +318,8 @@ contract SlashCommitmentTester is UnitTestHelper {
             basicCommitment(params.committerSecretKey, params.slasher, "");
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
         bytes memory evidence = "";
 
         // skip past fraud proof window
@@ -343,6 +365,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
     uint256 collateral = 100 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         registry = new Registry(defaultConfig());
@@ -363,7 +386,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -424,7 +449,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -465,7 +492,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -506,7 +535,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -533,7 +564,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -568,7 +601,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -602,7 +637,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -672,7 +709,9 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 0
+            slot: 0,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -710,6 +749,7 @@ contract SlashEquivocationTester is UnitTestHelper {
     uint256 collateral = 100 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         registry = new Registry(defaultConfig());
@@ -730,13 +770,16 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -750,7 +793,9 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        bytes32 nonce = keccak256(abi.encode(params.proposerSecretKey, operator));
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, nonce);
 
         // submit both delegations
         uint256 challengerBalanceBefore = challenger.balance;
@@ -783,12 +828,15 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Create second delegation
         ISlasher.Delegation memory delegationTwo = ISlasher.Delegation({
@@ -799,7 +847,9 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        bytes32 nonce = keccak256(abi.encode(params.proposerSecretKey, operator));
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, nonce);
 
         vm.startPrank(challenger);
         vm.expectRevert(IRegistry.FraudProofWindowNotMet.selector);
@@ -816,7 +866,9 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -825,7 +877,8 @@ contract SlashEquivocationTester is UnitTestHelper {
         IRegistry.RegistrationProof memory proof = IRegistry.RegistrationProof({
             registrationRoot: result.registrationRoot,
             registration: result.registrations[0],
-            merkleProof: new bytes32[](1)
+            merkleProof: new bytes32[](1),
+            signingId: params.signingId
         });
 
         // Create second delegation
@@ -837,7 +890,8 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, params.nonce);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -856,12 +910,15 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -884,12 +941,15 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: 1000
+            slot: 1000,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Create second delegation with different slot
         ISlasher.Delegation memory delegationTwo = ISlasher.Delegation({
@@ -900,7 +960,8 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, params.nonce);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -919,12 +980,15 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Create second delegation
         ISlasher.Delegation memory delegationTwo = ISlasher.Delegation({
@@ -935,7 +999,8 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, params.nonce);
 
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
 
@@ -962,12 +1027,15 @@ contract SlashEquivocationTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Create second delegation
         ISlasher.Delegation memory delegationTwo = ISlasher.Delegation({
@@ -978,7 +1046,8 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, signingId, params.nonce);
 
         // move past the fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -1002,6 +1071,7 @@ contract SlashReentrantTester is UnitTestHelper {
     uint256 collateral = 100 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         registry = new Registry(defaultConfig());
@@ -1026,7 +1096,9 @@ contract SlashReentrantTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, address(0)))
         });
 
         (RegisterAndDelegateResult memory result, address reentrantContractAddress) =
@@ -1034,7 +1106,7 @@ contract SlashReentrantTester is UnitTestHelper {
 
         // Setup proof
         IRegistry.RegistrationProof memory proof =
-            registry.getRegistrationProof(result.registrations, reentrantContractAddress, 0);
+            registry.getRegistrationProof(result.registrations, reentrantContractAddress, 0, signingId);
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -1051,7 +1123,9 @@ contract SlashReentrantTester is UnitTestHelper {
                 committer: params.committer,
                 slot: params.slot,
                 metadata: ""
-            })
+            }),
+            signingId,
+            params.nonce
         );
 
         // slash from a different address
@@ -1103,6 +1177,7 @@ contract SlashConditionTester is UnitTestHelper {
     uint256 collateral = 100 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         registry = new Registry(defaultConfig());
@@ -1123,7 +1198,9 @@ contract SlashConditionTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -1137,11 +1214,14 @@ contract SlashConditionTester is UnitTestHelper {
                 committer: params.committer,
                 slot: params.slot,
                 metadata: ""
-            })
+            }),
+            signingId,
+            params.nonce
         );
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -1171,7 +1251,9 @@ contract SlashConditionTester is UnitTestHelper {
             committer: committer,
             slasher: address(dummySlasher),
             metadata: "",
-            slot: uint64(UINT256_MAX)
+            slot: uint64(UINT256_MAX),
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -1185,11 +1267,14 @@ contract SlashConditionTester is UnitTestHelper {
                 committer: params.committer,
                 slot: params.slot,
                 metadata: ""
-            })
+            }),
+            signingId,
+            params.nonce
         );
 
         // Setup proof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
