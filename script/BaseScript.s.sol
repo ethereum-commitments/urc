@@ -316,4 +316,11 @@ contract BaseScript is Script {
         bytes memory pubkeyPretty = _prettyPubKey(abi.encode(BLSUtils.compress(pubkeyCopy)));
         console.log("Pubkey: ", vm.toString(pubkeyPretty));
     }
+
+    function _defaultSigningParams() internal returns (bytes32 signingDomain, bytes32 chainId) {
+        string memory configPath = "config/registry.json";
+        string memory configJson = vm.readFile(configPath);
+        signingDomain = vm.parseJsonBytes32(configJson, ".signingDomain");
+        chainId = vm.parseJsonBytes32(configJson, ".chainId");
+    }
 }

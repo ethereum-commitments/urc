@@ -11,8 +11,8 @@ import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import { DummySlasher } from "../test/Slasher.t.sol";
 
 contract SlashingScript is BaseScript {
-    // forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,string)" $REGISTRY_ADDRESS $OWNER $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
-    function registerBadRegistration(address _registry, address owner, string memory outfile)
+    // forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,bytes32,string)" $REGISTRY_ADDRESS $OWNER $SIGNING_ID $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
+    function registerBadRegistration(address _registry, address owner, bytes32 signingId, string memory outfile)
         external
         returns (bytes32 registrationRoot)
     {
@@ -22,8 +22,11 @@ contract SlashingScript is BaseScript {
         // Generate an invalid BLS registration using a deterministic private key
         uint256 privateKey = 12345;
 
+        // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
         // different owner address for invalid registration
-        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(1, privateKey, address(1337));
+        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(1, privateKey, address(1337), signingDomain, signingId, chainId);
 
         // Get reference to the registry
         IRegistry registry = IRegistry(_registry);
@@ -35,7 +38,7 @@ contract SlashingScript is BaseScript {
         _prettyPrintPubKey(registrations[0]);
 
         // Register the invalid registration
-        registrationRoot = registry.register{ value: collateralWei }(registrations, owner);
+        registrationRoot = registry.register{ value: collateralWei }(registrations, owner, signingId);
 
         console.log("Registered bad registration with root:", vm.toString(registrationRoot));
 
@@ -75,8 +78,13 @@ contract SlashingScript is BaseScript {
         // For testing we assume the proposer private key is generated from their owner address
         // uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
         uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
+
+        // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+        bytes32 signingId = keccak256("test-signing-id");
+
         // Generate two delegations with the same proposer and slot but different delegates
-        ISlasher.SignedDelegation[] memory delegations = _nDelegations(2, proposerPrivateKey, 1, committer, slot);
+        ISlasher.SignedDelegation[] memory delegations = _nDelegations(2, proposerPrivateKey, 1, committer, slot, signingDomain, signingId, chainId);
 
         // Write the delegations to files
         _writeDelegation(delegations[0], delegationOneFile);
@@ -180,6 +188,31 @@ contract SlashingScript is BaseScript {
         vm.stopBroadcast();
     }
 
+    function _testDelegation(address owner, address committer, uint256 committerPrivateKey) internal returns (ISlasher.SignedDelegation memory signedDelegation) {
+                // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
+        // hardcoded committer
+        (address committer, uint256 committerPrivateKey) = makeAddrAndKey("committer");
+
+        // sign the delegation
+        uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
+        signedDelegation = _signTestDelegation(
+            proposerPrivateKey,
+            ISlasher.Delegation({
+                proposer: BLSUtils.toPublicKey(proposerPrivateKey),
+                delegate: BLSUtils.toPublicKey(0), // unused
+                committer: committer,
+                slot: 5,
+                metadata: ""
+            }),
+            signingDomain,
+            keccak256("test-signing-id"),
+            keccak256(abi.encode(owner)),
+            chainId
+        );
+    }
+
     /// @dev NOT MEANT FOR PRODUCTION USE
     /// forge script script/Slashing.s.sol:SlashingScript --sig "prepareSlashing(address,address,bytes32,string,string,bytes)" $REGISTRY_ADDRESS $OWNER $REGISTRATION_ROOT $DELEGATION_ONE_FILE $COMMITMENT_FILE $EVIDENCE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
     function prepareSlashing(
@@ -200,17 +233,7 @@ contract SlashingScript is BaseScript {
         (address committer, uint256 committerPrivateKey) = makeAddrAndKey("committer");
 
         // sign the delegation
-        uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
-        ISlasher.SignedDelegation memory signedDelegation = _signTestDelegation(
-            proposerPrivateKey,
-            ISlasher.Delegation({
-                proposer: BLSUtils.toPublicKey(proposerPrivateKey),
-                delegate: BLSUtils.toPublicKey(0), // unused
-                committer: committer,
-                slot: 5,
-                metadata: ""
-            })
-        );
+        ISlasher.SignedDelegation memory signedDelegation = _testDelegation(owner, committer, committerPrivateKey);
 
         // sign the commitment
         ISlasher.SignedCommitment memory signedCommitment =

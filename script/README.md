@@ -70,7 +70,7 @@ forge script script/Collateral.s.sol:CollateralScript --sig "claimSlashedCollate
 Running this script will generate and register an intentionally invalid BLS registration. The registration will be saved to `script/output/{$SIGNED_REGISTRATIONS_FILE}` following the template file [SignedRegistrations.json](./output/SignedRegistrations.json). 
 
 ```bash
-forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,string)" $REGISTRY_ADDRESS $OWNER $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
+forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,bytes32,string)" $REGISTRY_ADDRESS $OWNER $SIGNING_ID $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
 ```
 
 ### Slashing a registration
@@ -110,7 +110,7 @@ forge script script/Getters.s.sol:GettersScript --sig "getOperatorData(address,b
 Given a compressed 48-byte-hex-encoded BLS `$PUBKEY` and a `SignedRegistrations` file located in `script/output/{$SIGNED_REGISTRATIONS_FILE}`, the script will write the `RegistrationProof` for the specified pubkey to `script/output/{$REGISTRATION_PROOF_FILE}` following the template file [`RegistrationProof.json`](./output/RegistrationProof.json).
 
 ```bash
-forge script script/Getters.s.sol:GettersScript --sig "getRegistrationProof(address,bytes,string,string)" $REGISTRY_ADDRESS $PUBKEY $SIGNED_REGISTRATIONS_FILE $REGISTRATION_PROOF_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL
+forge script script/Getters.s.sol:GettersScript --sig "getRegistrationProof(address,bytes,bytes32,string,string)" $REGISTRY_ADDRESS $PUBKEY $SIGNING_ID $SIGNED_REGISTRATIONS_FILE $REGISTRATION_PROOF_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL
 ```
 
 ### getSlasherCommitment

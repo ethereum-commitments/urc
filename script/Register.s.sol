@@ -83,11 +83,7 @@ contract RegisterScript is BaseScript {
     function nDummyRegistrations(uint256 n, address owner, bytes32 signingId, string memory outfile) public {
         console.log("Running nDummyRegistrations()... WARNING do not use the output in production!!!");
 
-        string memory configPath = "config/registry.json";
-        string memory configJson = vm.readFile(configPath);
-
-        bytes32 signingDomain = vm.parseJsonBytes32(configJson, ".signingDomain");
-        bytes32 chainId = vm.parseJsonBytes32(configJson, ".chainId");
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
 
         // The n'th private key will = startPrivateKey + n
         uint256 startPrivateKey = uint256(keccak256(abi.encode(owner)));
