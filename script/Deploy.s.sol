@@ -19,7 +19,9 @@ contract DeployScript is Script {
             fraudProofWindow: uint32(vm.parseJsonUint(configJson, ".fraudProofWindow")),
             unregistrationDelay: uint32(vm.parseJsonUint(configJson, ".unregistrationDelay")),
             slashWindow: uint32(vm.parseJsonUint(configJson, ".slashWindow")),
-            optInDelay: uint32(vm.parseJsonUint(configJson, ".optInDelay"))
+            optInDelay: uint32(vm.parseJsonUint(configJson, ".optInDelay")),
+            signingDomain: vm.parseJsonBytes32(configJson, ".signingDomain"),
+            chainId: vm.parseJsonBytes32(configJson, ".chainId")
         });
 
         // Deploy the Registry contract
