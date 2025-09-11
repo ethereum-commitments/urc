@@ -17,8 +17,6 @@ contract Registry is IRegistry {
 
     // Constants
     address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
-    bytes public constant REGISTRATION_DOMAIN_SEPARATOR = "0x00555243"; // "URC" in little endian
-    bytes public constant DELEGATION_DOMAIN_SEPARATOR = "0x0044656c"; // "Del" in little endian
 
     /// @notice The configuration for the URC
     Config private config;
@@ -34,7 +32,7 @@ contract Registry is IRegistry {
      */
 
     /// @inheritdoc IRegistry
-    function register(SignedRegistration[] calldata registrations, address owner)
+    function register(SignedRegistration[] calldata registrations, address owner, bytes32 signingId)
         external
         payable
         returns (bytes32 registrationRoot)
@@ -51,7 +49,7 @@ contract Registry is IRegistry {
         if (owner == address(0)) revert InvalidOwnerAddress();
 
         // note: owner address is mixed into the Merkle leaves to bind the registrationRoot to the owner
-        registrationRoot = _merkleizeSignedRegistrationsWithOwner(registrations, owner);
+        registrationRoot = _merkleizeSignedRegistrationsWithOwner(registrations, owner, signingId);
 
         // Revert on a bad registration root
         if (registrationRoot == bytes32(0)) revert InvalidRegistrationRoot();
@@ -243,12 +241,18 @@ contract Registry is IRegistry {
         _verifyMerkleProof(proof);
 
         // Reconstruct registration message
-        bytes memory message = abi.encode(operator.data.owner);
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Registration, operator.data.owner));
 
         // Verify registration signature, note the domain separator mixin
         if (
             BLSUtils.verify(
-                message, proof.registration.signature, proof.registration.pubkey, REGISTRATION_DOMAIN_SEPARATOR
+                messageHash,
+                proof.registration.signature,
+                proof.registration.pubkey,
+                config.signingDomain,
+                proof.signingId,
+                proof.registration.nonce,
+                config.chainId
             )
         ) {
             revert FraudProofChallengeInvalid();
@@ -641,15 +645,17 @@ contract Registry is IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function getRegistrationProof(SignedRegistration[] calldata regs, address owner, uint256 leafIndex)
-        external
-        pure
-        returns (RegistrationProof memory proof)
-    {
-        proof.registrationRoot = _merkleizeSignedRegistrationsWithOwner(regs, owner);
+    function getRegistrationProof(
+        SignedRegistration[] calldata regs,
+        address owner,
+        uint256 leafIndex,
+        bytes32 signingId
+    ) external pure returns (RegistrationProof memory proof) {
+        proof.registrationRoot = _merkleizeSignedRegistrationsWithOwner(regs, owner, signingId);
         proof.registration = regs[leafIndex];
+        proof.signingId = signingId;
 
-        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner);
+        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner, signingId);
         proof.merkleProof = MerkleTree.generateProof(leaves, leafIndex);
     }
 
@@ -702,13 +708,13 @@ contract Registry is IRegistry {
     /// @dev Leaves are created by abi-encoding the `SignedRegistration` structs with the owner address, then hashing with keccak256.
     /// @param regs The array of `SignedRegistration` structs to merkleize
     /// @return registrationRoot The merkle root of the registration
-    function _merkleizeSignedRegistrationsWithOwner(SignedRegistration[] calldata regs, address owner)
-        internal
-        pure
-        returns (bytes32 registrationRoot)
-    {
+    function _merkleizeSignedRegistrationsWithOwner(
+        SignedRegistration[] calldata regs,
+        address owner,
+        bytes32 signingId
+    ) internal pure returns (bytes32 registrationRoot) {
         // Create leaves array with padding
-        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner);
+        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner, signingId);
 
         // Merkleize the leaves
         registrationRoot = MerkleTree.generateTree(leaves);
@@ -721,7 +727,7 @@ contract Registry is IRegistry {
     /// @param proof The merkle proof to verify the operator's key is in the registry
     function _verifyMerkleProof(RegistrationProof calldata proof) internal view {
         address owner = operators[proof.registrationRoot].data.owner;
-        bytes32 leaf = keccak256(abi.encode(proof.registration, owner));
+        bytes32 leaf = keccak256(abi.encode(proof.registration, owner, proof.signingId));
         if (!MerkleTree.verifyProofCalldata(proof.registrationRoot, leaf, proof.merkleProof)) {
             revert InvalidProof();
         }
@@ -746,11 +752,19 @@ contract Registry is IRegistry {
         _verifyMerkleProof(proof);
 
         // Reconstruct Delegation message
-        bytes memory message = abi.encode(delegation.delegation);
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, delegation.delegation));
 
         // Verify it was signed by the registered BLS key
         if (
-            !BLSUtils.verify(message, delegation.signature, delegation.delegation.proposer, DELEGATION_DOMAIN_SEPARATOR)
+            !BLSUtils.verify(
+                messageHash,
+                delegation.signature,
+                delegation.delegation.proposer,
+                config.signingDomain,
+                proof.signingId,
+                proof.registration.nonce,
+                config.chainId
+            )
         ) {
             revert DelegationSignatureInvalid();
         }

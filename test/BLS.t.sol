@@ -9,26 +9,36 @@ import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 /// @notice A simple test demonstrating BLS signature verification.
 contract BLSTest is Test {
     /// @dev Demonstrates the signing and verification of a message.
-    function testSignAndVerify(uint256 privateKey, bytes memory message, bytes memory domainSeparator) public view {
+    function testSignAndVerify(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
+    ) public view {
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(privateKey);
-        BLS.G2Point memory signature = BLSUtils.sign(message, privateKey, domainSeparator);
-        assert(BLSUtils.verify(message, signature, publicKey, domainSeparator));
+        BLS.G2Point memory signature = BLSUtils.sign(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
+        assert(BLSUtils.verify(messageHash, signature, publicKey, signingDomain, signingId, nonce, chainId));
     }
 
     /// @dev Demonstrates the aggregation and verification of two signatures.
     function testAggregation(
         uint256 privateKey1,
         uint256 privateKey2,
-        bytes memory message,
-        bytes memory domainSeparator
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
     ) public view {
         // public keys
         BLS.G1Point memory pk1 = BLSUtils.toPublicKey(privateKey1);
         BLS.G1Point memory pk2 = BLSUtils.toPublicKey(privateKey2);
 
         // signatures
-        BLS.G2Point memory sig1 = BLSUtils.sign(message, privateKey1, domainSeparator);
-        BLS.G2Point memory sig2 = BLSUtils.sign(message, privateKey2, domainSeparator);
+        BLS.G2Point memory sig1 = BLSUtils.sign(privateKey1, messageHash, signingDomain, signingId, nonce, chainId);
+        BLS.G2Point memory sig2 = BLSUtils.sign(privateKey2, messageHash, signingDomain, signingId, nonce, chainId);
 
         // aggregated signature
         BLS.G2Point memory sig = BLS.add(sig1, sig2);
@@ -41,23 +51,34 @@ contract BLSTest is Test {
 
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](3);
         g2Points[0] = sig;
-        g2Points[1] = BLSUtils.toMessagePoint(message, domainSeparator);
-        g2Points[2] = BLSUtils.toMessagePoint(message, domainSeparator);
+        g2Points[1] = BLSUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        g2Points[2] = BLSUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
 
         assert(BLS.pairing(g1Points, g2Points));
     }
 
-    function testToMessagePoint(bytes memory message, bytes memory domainSeparator) public view {
-        BLS.G2Point memory messagePoint = BLSUtils.toMessagePoint(message, domainSeparator);
-        BLS.G2Point memory messagePointExpected = BLS.toG2(
-            BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: keccak256(abi.encodePacked(domainSeparator, message)) })
+    function testComputeSigningRoot(
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
+    ) public view {
+        BLS.G2Point memory signingRoot =
+            BLSUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+
+        // Compute expected signing root manually
+        bytes32 subTreeRoot = sha256(
+            abi.encodePacked(sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId)))
         );
+        bytes32 expectedSigningRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
+        BLS.G2Point memory expected = BLS.toG2(BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: expectedSigningRoot }));
 
         assert(
-            messagePoint.x_c0_a == messagePointExpected.x_c0_a && messagePoint.x_c0_b == messagePointExpected.x_c0_b
-                && messagePoint.x_c1_a == messagePointExpected.x_c1_a && messagePoint.x_c1_b == messagePointExpected.x_c1_b
-                && messagePoint.y_c0_a == messagePointExpected.y_c0_a && messagePoint.y_c0_b == messagePointExpected.y_c0_b
-                && messagePoint.y_c1_a == messagePointExpected.y_c1_a && messagePoint.y_c1_b == messagePointExpected.y_c1_b
+            signingRoot.x_c0_a == expected.x_c0_a && signingRoot.x_c0_b == expected.x_c0_b
+                && signingRoot.x_c1_a == expected.x_c1_a && signingRoot.x_c1_b == expected.x_c1_b
+                && signingRoot.y_c0_a == expected.y_c0_a && signingRoot.y_c0_b == expected.y_c0_b
+                && signingRoot.y_c1_a == expected.y_c1_a && signingRoot.y_c1_b == expected.y_c1_b
         );
     }
 
@@ -124,23 +145,26 @@ contract BLSGasTest is Test {
     }
 
     function testG2AddGas() public {
-        BLS.G2Point memory g2A = BLSUtils.sign("hello", 1234, "");
+        BLS.G2Point memory g2A =
+            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
 
-        BLS.G2Point memory g2B = BLSUtils.sign("world", 5678, "");
+        BLS.G2Point memory g2B =
+            BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLS.add(g2A, g2B);
     }
 
     function testG2MulGas() public {
-        BLS.G2Point memory g2A = BLSUtils.sign("hello", 1234, "");
+        BLS.G2Point memory g2A =
+            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLSUtils.mul(g2A, BLSUtils._u(1234));
     }
 
     function testG2MSMGas() public {
         BLS.G2Point[] memory points = new BLS.G2Point[](2);
-        points[0] = BLSUtils.sign("hello", 1234, "");
-        points[1] = BLSUtils.sign("world", 5678, "");
+        points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+        points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
         bytes32[] memory scalars = new bytes32[](2);
         scalars[0] = BLSUtils._u(1234);
         scalars[1] = BLSUtils._u(5678);
@@ -153,8 +177,8 @@ contract BLSGasTest is Test {
         g1Points[0] = BLSUtils.toPublicKey(1234);
         g1Points[1] = BLSUtils.toPublicKey(5678);
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
-        g2Points[0] = BLSUtils.sign("hello", 1234, "");
-        g2Points[1] = BLSUtils.sign("world", 5678, "");
+        g2Points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+        g2Points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLS.pairing(g1Points, g2Points);
     }
@@ -172,19 +196,35 @@ contract BLSGasTest is Test {
     }
 
     function testSigningGas() public {
-        BLS.G2Point memory messagePoint = BLSUtils.toMessagePoint("hello", "domain");
+        BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
+            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+        );
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(1234);
         vm.resetGasMetering();
-        BLSUtils.sign("hello", 1234, "domain");
+        BLSUtils.sign(
+            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+        );
     }
 
     function testVerifyingSingleSignatureGas() public {
-        BLS.G2Point memory messagePoint = BLSUtils.toMessagePoint("hello", "domain");
+        BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
+            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+        );
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(1234);
-        BLS.G2Point memory signature = BLSUtils.sign("hello", 1234, "domain");
+        BLS.G2Point memory signature = BLSUtils.sign(
+            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+        );
 
         vm.resetGasMetering();
-        BLSUtils.verify("hello", signature, publicKey, "domain");
+        BLSUtils.verify(
+            keccak256("hello"),
+            signature,
+            publicKey,
+            bytes32(uint256(keccak256("domain"))),
+            bytes32(0),
+            bytes32(0),
+            bytes32(uint256(1))
+        );
     }
 
     function testG1PointCompressGas() public {

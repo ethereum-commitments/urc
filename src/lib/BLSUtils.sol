@@ -135,47 +135,77 @@ library BLSUtils {
         return mul(G1_GENERATOR(), _u(privateKey));
     }
 
-    /// @notice Converts a message to a G2 point
-    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
-    /// @param domainSeparator The domain separation tag
-    /// @return A point in G2
-    function toMessagePoint(bytes memory message, bytes memory domainSeparator)
-        internal
-        view
-        returns (BLS.G2Point memory)
-    {
-        return BLS.toG2(
-            BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: keccak256(abi.encodePacked(domainSeparator, message)) })
+    /// @notice Computes the signingRoot
+    ///
+    ///                      signingRoot
+    ///                       /         \
+    ///                  subTreeRoot   signingDomain
+    ///                 /           \
+    ///                *             *
+    ///             /    \         /   \
+    ///    messageHash signingId  nonce chainId
+    ///
+    /// @param messageHash The hash of the message to sign
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
+    /// @return The signing root
+    function computeSigningRoot(
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
+    ) internal view returns (BLS.G2Point memory) {
+        bytes32 subTreeRoot = sha256(
+            abi.encodePacked(sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId)))
         );
+        bytes32 signingRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
+
+        // Convert the signing root hash to a G2 point
+        return BLS.toG2(BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: signingRoot }));
     }
 
     /// @notice Signs a message
-    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
     /// @param privateKey The private key to sign with
-    /// @param domainSeparator The domain separation tag
+    /// @param messageHash The hash of the message to sign
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
     /// @return A signature in G2
-    function sign(bytes memory message, uint256 privateKey, bytes memory domainSeparator)
-        internal
-        view
-        returns (BLS.G2Point memory)
-    {
-        return mul(toMessagePoint(message, domainSeparator), _u(privateKey));
+    function sign(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
+    ) internal view returns (BLS.G2Point memory) {
+        return mul(computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId), _u(privateKey));
     }
 
     /// @notice Verifies a signature
-    /// @param message Arbitrarylength byte string to be hashed
+    /// @param messageHash The hash of the message to verify
     /// @param signature The signature to verify
     /// @param publicKey The public key to verify against
-    /// @param domainSeparator The domain separation tag
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
     /// @return True if the signature is valid, false otherwise
     function verify(
-        bytes memory message,
+        bytes32 messageHash,
         BLS.G2Point memory signature,
         BLS.G1Point memory publicKey,
-        bytes memory domainSeparator
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 nonce,
+        bytes32 chainId
     ) public view returns (bool) {
         // Hash the message bytes into a G2 point
-        BLS.G2Point memory messagePoint = toMessagePoint(message, domainSeparator);
+        BLS.G2Point memory signingRoot = computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
 
         // Invoke the BLS.pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
@@ -184,7 +214,7 @@ library BLSUtils {
 
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
         g2Points[0] = signature;
-        g2Points[1] = messagePoint;
+        g2Points[1] = signingRoot;
 
         return BLS.pairing(g1Points, g2Points);
     }
