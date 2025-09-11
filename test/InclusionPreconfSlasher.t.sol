@@ -36,6 +36,7 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
     uint256 collateral = 1.1 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
         vm.createSelectFork(vm.rpcUrl("mainnet"));
@@ -65,7 +66,9 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             committer: committer,
             slasher: address(slasher),
             metadata: metadata,
-            slot: slot
+            slot: slot,
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
         });
 
         // Register operator to URC and signs delegation message
@@ -187,8 +190,10 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             committer: committer,
             slasher: address(slasher),
             metadata: metadata,
-            slot: 0 // already expired
-         });
+            slot: 0, // already expired
+            signingId: signingId,
+            nonce: keccak256(abi.encode(SECRET_KEY_1, alice))
+        });
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
         // Create commitment for expired delegation
@@ -231,7 +236,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         vm.warp(block.timestamp + slasher.CHALLENGE_WINDOW() + 1);
 
         // Merkle proof for URC registration
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         bytes memory evidence = abi.encode(inclusionProof);
 
@@ -273,7 +279,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         vm.warp(block.timestamp + slasher.CHALLENGE_WINDOW() + 1);
 
         // Merkle proof for URC registration
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Try to slash as different address (not the original challenger)
         vm.prank(operator);
