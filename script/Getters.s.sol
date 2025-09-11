@@ -91,10 +91,11 @@ contract GettersScript is BaseScript {
         console.log("SlasherCommitment written to", jsonFile);
     }
 
-    // forge script script/Getters.s.sol:GettersScript --sig "getRegistrationProof(address,bytes,string,string)" $REGISTRY_ADDRESS $PUBKEY $SIGNED_REGISTRATIONS_FILE $REGISTRATION_PROOF_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL
+    // forge script script/Getters.s.sol:GettersScript --sig "getRegistrationProof(address,bytes,bytes32,string,string)" $REGISTRY_ADDRESS $PUBKEY $SIGNING_ID $SIGNED_REGISTRATIONS_FILE $REGISTRATION_PROOF_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL
     function getRegistrationProof(
         address _registry,
         bytes memory pubkey,
+        bytes32 signingId,
         string memory signedRegistrationsFile,
         string memory outfile
     ) public returns (IRegistry.RegistrationProof memory) {
@@ -131,7 +132,8 @@ contract GettersScript is BaseScript {
         IRegistry registry = IRegistry(_registry);
 
         // Call URC.getRegistrationProof
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(registrations, owner, leafIndex);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(registrations, owner, leafIndex, signingId);
 
         // Check that the registration proof is valid
         registry.verifyMerkleProof(proof);
