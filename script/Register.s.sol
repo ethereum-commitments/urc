@@ -7,10 +7,12 @@ import "./BaseScript.s.sol";
 
 contract RegisterScript is BaseScript {
     // forge script script/Register.s.sol:RegisterScript --sig "register(address,uint256,bytes32,string)" $REGISTRY_ADDRESS $COLLATERAL $SIGNING_ID $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
-    function register(address _registry, uint256 collateralWei, bytes32 signingId, string memory signedRegistrationsFile)
-        external
-        returns (bytes32 registrationRoot)
-    {
+    function register(
+        address _registry,
+        uint256 collateralWei,
+        bytes32 signingId,
+        string memory signedRegistrationsFile
+    ) external returns (bytes32 registrationRoot) {
         // Start broadcasting transactions
         vm.startBroadcast();
 
@@ -91,7 +93,8 @@ contract RegisterScript is BaseScript {
         uint256 startPrivateKey = uint256(keccak256(abi.encode(owner)));
 
         // Sign the registration messages
-        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(n, startPrivateKey, owner, signingDomain, signingId, chainId);
+        IRegistry.SignedRegistration[] memory registrations =
+            _nRegistrations(n, startPrivateKey, owner, signingDomain, signingId, chainId);
 
         // Write them to a JSON file
         _writeSignedRegistrations(owner, registrations, outfile);
