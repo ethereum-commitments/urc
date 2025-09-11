@@ -6,8 +6,8 @@ import "../src/IRegistry.sol";
 import "./BaseScript.s.sol";
 
 contract RegisterScript is BaseScript {
-    // forge script script/Register.s.sol:RegisterScript --sig "register(address,uint256,string)" $REGISTRY_ADDRESS $COLLATERAL $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
-    function register(address _registry, uint256 collateralWei, string memory signedRegistrationsFile)
+    // forge script script/Register.s.sol:RegisterScript --sig "register(address,uint256,bytes32,string)" $REGISTRY_ADDRESS $COLLATERAL $SIGNING_ID $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
+    function register(address _registry, uint256 collateralWei, bytes32 signingId, string memory signedRegistrationsFile)
         external
         returns (bytes32 registrationRoot)
     {
@@ -35,7 +35,7 @@ contract RegisterScript is BaseScript {
         IRegistry registry = IRegistry(_registry);
 
         // Call register
-        registrationRoot = registry.register{ value: collateralWei }(registrations, owner);
+        registrationRoot = registry.register{ value: collateralWei }(registrations, owner, signingId);
 
         console.log("Success! got registrationRoot:", vm.toString(registrationRoot));
 
@@ -76,15 +76,22 @@ contract RegisterScript is BaseScript {
     /// @dev NOT MEANT FOR PRODUCTION USE
     /// @dev Signs N registration messages and writes them to `outfile`
     /// @dev Derives N dummy BLS private keys from the `owner` address
-    // forge script script/Register.s.sol:RegisterScript --sig "nDummyRegistrations(uint256,address,string)" $N $OWNER $SIGNED_REGISTRATIONS_FILE
-    function nDummyRegistrations(uint256 n, address owner, string memory outfile) public {
+    /// @dev Reads the signing domain and chain ID from the default "config/registry.json" file
+    // forge script script/Register.s.sol:RegisterScript --sig "nDummyRegistrations(uint256,address,string,bytes32)" $N $OWNER $SIGNED_REGISTRATIONS_FILE $SIGNING_ID
+    function nDummyRegistrations(uint256 n, address owner, bytes32 signingId, string memory outfile) public {
         console.log("Running nDummyRegistrations()... WARNING do not use the output in production!!!");
+
+        string memory configPath = "config/registry.json";
+        string memory configJson = vm.readFile(configPath);
+
+        bytes32 signingDomain = vm.parseJsonBytes32(configJson, ".signingDomain");
+        bytes32 chainId = vm.parseJsonBytes32(configJson, ".chainId");
 
         // The n'th private key will = startPrivateKey + n
         uint256 startPrivateKey = uint256(keccak256(abi.encode(owner)));
 
         // Sign the registration messages
-        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(n, startPrivateKey, owner);
+        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(n, startPrivateKey, owner, signingDomain, signingId, chainId);
 
         // Write them to a JSON file
         _writeSignedRegistrations(owner, registrations, outfile);

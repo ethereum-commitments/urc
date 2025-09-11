@@ -13,12 +13,12 @@ forge script script/Deploy.s.sol:DeployScript --sig "deploy()" --rpc-url $RPC_UR
 
 Running this script will generate `N` `SignedRegistration` messages signed by deterministic BLS private keys. The `SignedRegistrations` will be saved to `script/output/{$SIGNED_REGISTRATIONS_FILE}` following the template file [SignedRegistrations.json](./output/SignedRegistrations.json).
 ```bash
-forge script script/Register.s.sol:RegisterScript --sig "nDummyRegistrations(uint256,address,string)" $N $OWNER $SIGNED_REGISTRATIONS_FILE
+forge script script/Register.s.sol:RegisterScript --sig "nDummyRegistrations(uint256,address,bytes32,string)" $N $OWNER $SIGNING_ID $SIGNED_REGISTRATIONS_FILE
 ```
 ### Registering to the URC
 Running this script will call `register()` using the supplied `SignedRegistrations` located in `script/output/{$SIGNED_REGISTRATIONS_FILE}` following the template file [SignedRegistrations.json](./output/SignedRegistrations.json). `$COLLATERAL` wei will be transferred from the caller's account to the URC.
 ```bash
-forge script script/Register.s.sol:RegisterScript --sig "register(address,uint256,string)" $REGISTRY_ADDRESS $COLLATERAL $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
+forge script script/Register.s.sol:RegisterScript --sig "register(address,uint256,bytes32,string)" $REGISTRY_ADDRESS $COLLATERAL $SIGNING_ID $SIGNED_REGISTRATIONS_FILE  --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
 ```
 
 ### Unregistering from the URC
