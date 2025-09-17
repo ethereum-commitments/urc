@@ -164,7 +164,7 @@ library BLSUtils {
         bytes32 signingRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
 
         // Convert the signing root hash to a G2 point
-        return BLS.toG2(BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: signingRoot }));
+        return BLS.hashToG2(abi.encodePacked(signingRoot));
     }
 
     /// @notice Signs a message
