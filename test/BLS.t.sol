@@ -5,6 +5,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import { Test, console } from "forge-std/Test.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
+import { ISlasher } from "../src/ISlasher.sol";
 
 /// @notice A simple test demonstrating BLS signature verification.
 contract BLSTest is Test {
@@ -183,6 +184,154 @@ contract BLSTest is Test {
         // 0x22bd89742861ab1e98de83b64ba009b7243b77e9ee10c9a29a11c9366a8082c6
 
         assert(BLSUtils.verify(messageHash, signature, publicKey, signingDomain, signingId, nonce, chainId));
+    }
+
+    function testValidG2PointDelegation() public {
+        // 0x1e240
+        uint256 proposerPrivateKey = 123456;
+
+        // 0xaf6e96c0eccd8d4ae868be9299af737855a1b08d57bccb565ea7e69311a30baeebe08d493c3fea97077e8337e95ac5a6
+        BLS.G1Point memory proposerPubKey = BLSUtils.toPublicKey(proposerPrivateKey);
+
+        // 0x1343e
+        uint256 delegatePrivateKey = 78910;
+
+        // 0xaf53b192a82ec1229e8fce4f99cb60287ce33896192b6063ac332b36fbe87ba1b2936bbc849ec68a0132362ab11a7754
+        BLS.G1Point memory delegatePubKey = BLSUtils.toPublicKey(delegatePrivateKey);
+
+        ISlasher.Delegation memory delegation = ISlasher.Delegation({
+            proposer: proposerPubKey,
+            delegate: delegatePubKey,
+            committer: address(0x1111111111111111111111111111111111111111),
+            slot: 5,
+            metadata: "some-metadata-here"
+        });
+
+        console.logBytes32(keccak256(abi.encode(uint256(2), delegation)));
+
+        // Commit-Boost signing domain
+        bytes32 signingDomain = bytes32(0x00000000000000000000000000000000000000000000000000000000436f6d6d);
+
+        // Commit-Boost signing ID
+        bytes32 signingId = bytes32(0x2222222222222222222222222222222222222222222222222222222222222222);
+
+        // Commit-Boost nonce
+        bytes32 nonce = bytes32(0x0000000000000000000000000000000000000000000000000000000000000420);
+
+        // Commit-Boost chain ID
+        bytes32 chainId = bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
+
+        // 0xcd9aca062121f6f50df1bfd7e74e2b023a5a0d9e1387447568a2119db5022e1b
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, delegation));
+
+        // 0xad9ba7af707d987c147f0379b5e68bc2da1e1b94fcaa6dc72897bb4d23b22075
+        bytes32 signingRoot = sha256(
+            abi.encodePacked(
+                sha256(
+                    abi.encodePacked(
+                        sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId))
+                    )
+                ),
+                signingDomain
+            )
+        );
+
+        // 0xa4a7b68288c7e131151ddc020ebf437180f45d0440e74b45d35ae3f757aba7a1051cff0db6bf2ae8049bd864a77263c20b044bf27bf506e1f79717e36c025587bc645a28458447a2db573c8a62d0968c1f2413c449c9e2fa3e7589b6fc438bb2
+        BLS.G2Point memory signature =
+            BLSUtils.sign(proposerPrivateKey, messageHash, signingDomain, signingId, nonce, chainId);
+
+        console.logBytes32(signature.x_c0_a);
+        console.logBytes32(signature.x_c0_b);
+        console.logBytes32(signature.x_c1_a);
+        console.logBytes32(signature.x_c1_b);
+        console.logBytes32(signature.y_c0_a);
+        console.logBytes32(signature.y_c0_b);
+        console.logBytes32(signature.y_c1_a);
+        console.logBytes32(signature.y_c1_b);
+
+        //   0x000000000000000000000000000000000b044bf27bf506e1f79717e36c025587
+        //   0xbc645a28458447a2db573c8a62d0968c1f2413c449c9e2fa3e7589b6fc438bb2
+        //   0x0000000000000000000000000000000004a7b68288c7e131151ddc020ebf4371
+        //   0x80f45d0440e74b45d35ae3f757aba7a1051cff0db6bf2ae8049bd864a77263c2
+        //   0x000000000000000000000000000000000ab58d8c14bab9130b1a7b261d2c7c9b
+        //   0x4503018948819890030239b32f259755fa30302c51f1f1b4fb0c18a0efd7224c
+        //   0x00000000000000000000000000000000110cc5b23f6b491ab0a4eb521b83acab
+        //   0xfa2af587c82f0d3039d576e1cd54eb12b37b03a6e9c1c053c40f7fb9534a4f9e
+
+        assert(BLSUtils.verify(messageHash, signature, proposerPubKey, signingDomain, signingId, nonce, chainId));
+    }
+
+    function testValidateRust() public {
+        // decrypted + decoded from https://github.com/Commit-Boost/commit-boost-client/blob/main/tests/data/keystores/secrets/0xb3a22e4a673ac7a153ab5b3c17a4dbef55f7e47210b20c0cbb0e66df5b36bb49ef808577610b034172e955d2312a61b9
+        uint256 proposerPrivateKey = 0x0501e85d5bc2e95f70efda47409710a7cf01dd02ff238e3efec679b27331d917;
+
+        // 0xb3a22e4a673ac7a153ab5b3c17a4dbef55f7e47210b20c0cbb0e66df5b36bb49ef808577610b034172e955d2312a61b9
+        BLS.G1Point memory proposerPubKey = BLSUtils.toPublicKey(proposerPrivateKey);
+
+        // 0x1e240
+        uint256 delegatePrivateKey = 123456;
+
+        // 0xaf6e96c0eccd8d4ae868be9299af737855a1b08d57bccb565ea7e69311a30baeebe08d493c3fea97077e8337e95ac5a6
+        BLS.G1Point memory delegatePubKey = BLSUtils.toPublicKey(delegatePrivateKey);
+
+        ISlasher.Delegation memory delegation = ISlasher.Delegation({
+            proposer: proposerPubKey,
+            delegate: delegatePubKey,
+            committer: address(0x1111111111111111111111111111111111111111),
+            slot: 0,
+            metadata: ""
+        });
+
+        // Commit-Boost signing domain
+        bytes32 signingDomain = bytes32(0x6d6d6f43719103511efa4f1362ff2a50996cccf329cc84cb410c5e5c7d351d03);
+
+        // Commit-Boost signing ID
+        bytes32 signingId = bytes32(0xcb005700fab121c00ccbc94db58c04675b7847c38f9583815139d1d98bea0cb0);
+
+        // u64::MAX - 1 as little endian
+        bytes32 nonce = bytes32(0xfeffffffffffffff000000000000000000000000000000000000000000000000);
+
+        // Hoodi is 560048, as little endian
+        bytes32 chainId = bytes32(0xb08b080000000000000000000000000000000000000000000000000000000000);
+
+        // 0x9acaabc32311cf88c56b810bf9f6c789f84bca6cd7172c2056d4c7a639ffe79e
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, delegation));
+
+        // 0x2df11c9d631fbe4be80eedd5caf00adb886ab9e10b1a277ec22d392c7a91d16e
+        bytes32 signingRoot = sha256(
+            abi.encodePacked(
+                sha256(
+                    abi.encodePacked(
+                        sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId))
+                    )
+                ),
+                signingDomain
+            )
+        );
+
+        // 0x8c6f28dfec8a79c881146d6734e84b3b784c2649cb0c3fcec292491513abffd142eb7dde6b34e36427c42ccad19c42f20ae562237453f4c2c6ce0467a17afa55c7084b5a713e113b1d44a65dd7a08e36fd4ef91aee59c03de61b3c84fab4ae43
+        BLS.G2Point memory signature =
+            BLSUtils.sign(proposerPrivateKey, messageHash, signingDomain, signingId, nonce, chainId);
+
+        console.logBytes32(signature.x_c0_a);
+        console.logBytes32(signature.x_c0_b);
+        console.logBytes32(signature.x_c1_a);
+        console.logBytes32(signature.x_c1_b);
+        console.logBytes32(signature.y_c0_a);
+        console.logBytes32(signature.y_c0_b);
+        console.logBytes32(signature.y_c1_a);
+        console.logBytes32(signature.y_c1_b);
+
+        // 0x000000000000000000000000000000000ae562237453f4c2c6ce0467a17afa55
+        // 0xc7084b5a713e113b1d44a65dd7a08e36fd4ef91aee59c03de61b3c84fab4ae43
+        // 0x000000000000000000000000000000000c6f28dfec8a79c881146d6734e84b3b
+        // 0x784c2649cb0c3fcec292491513abffd142eb7dde6b34e36427c42ccad19c42f2
+        // 0x000000000000000000000000000000000656654e89e944387f4b528f92471e3b
+        // 0xd511bf5c2651fbc783deb339fa4cab28bd4c8cd49e311acbdc2bb3556027c986
+        // 0x0000000000000000000000000000000006148f9185fdeea718d761cde3dc10ef
+        // 0x9134f6df779be74d88a26aef051122b58d88288b86b4ecf8a256fcd2b0a7e715
+
+        assert(BLSUtils.verify(messageHash, signature, proposerPubKey, signingDomain, signingId, nonce, chainId));
     }
 }
 

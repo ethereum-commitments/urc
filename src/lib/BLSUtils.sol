@@ -9,6 +9,27 @@ import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 library BLSUtils {
     using BLS for *;
 
+    /// @dev For addition of two points on the BLS12-381 G1 curve,
+    address internal constant BLS12_G1ADD = 0x000000000000000000000000000000000000000b;
+
+    /// @dev For multi-scalar multiplication (MSM) on the BLS12-381 G1 curve.
+    address internal constant BLS12_G1MSM = 0x000000000000000000000000000000000000000C;
+
+    /// @dev For addition of two points on the BLS12-381 G2 curve.
+    address internal constant BLS12_G2ADD = 0x000000000000000000000000000000000000000d;
+
+    /// @dev For multi-scalar multiplication (MSM) on the BLS12-381 G2 curve.
+    address internal constant BLS12_G2MSM = 0x000000000000000000000000000000000000000E;
+
+    /// @dev For performing a pairing check on the BLS12-381 curve.
+    address internal constant BLS12_PAIRING_CHECK = 0x000000000000000000000000000000000000000F;
+
+    /// @dev For mapping a Fp to a point on the BLS12-381 G1 curve.
+    address internal constant BLS12_MAP_FP_TO_G1 = 0x0000000000000000000000000000000000000010;
+
+    /// @dev For mapping a Fp2 to a point on the BLS12-381 G2 curve.
+    address internal constant BLS12_MAP_FP2_TO_G2 = 0x0000000000000000000000000000000000000011;
+
     /// @notice G1MUL operation
     /// @param point G1 point
     /// @param scalar Scalar to multiply the point by
@@ -128,6 +149,79 @@ library BLSUtils {
         return false;
     }
 
+    /// @dev Computes a point in G2 from a message.
+    /// @dev Copied from Solady but changed the DST from "SWU_RO_NUL_\x2b" to "SWU_RO_POP_\x2b"
+    function _hashToG2(bytes memory message) internal view returns (BLS.G2Point memory result) {
+        assembly ("memory-safe") {
+            function dstPrime(o_, i_) -> _o {
+                mstore8(o_, i_) // 1.
+                mstore(add(o_, 0x01), "BLS_SIG_BLS12381G2_XMD:SHA-256_S") // 32.
+                mstore(add(o_, 0x21), "SWU_RO_POP_\x2b") // 12.
+                _o := add(0x2d, o_)
+            }
+
+            function sha2(data_, n_) -> _h {
+                if iszero(and(eq(returndatasize(), 0x20), staticcall(gas(), 2, data_, n_, 0x00, 0x20))) {
+                    revert(calldatasize(), 0x00)
+                }
+                _h := mload(0x00)
+            }
+
+            function modfield(s_, b_) {
+                mcopy(add(s_, 0x60), b_, 0x40)
+                if iszero(and(eq(returndatasize(), 0x40), staticcall(gas(), 5, s_, 0x100, b_, 0x40))) {
+                    revert(calldatasize(), 0x00)
+                }
+            }
+
+            function mapToG2(s_, r_) {
+                if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100)))
+                {
+                    mstore(0x00, 0x89083b91) // `MapFp2ToG2Failed()`.
+                    revert(0x1c, 0x04)
+                }
+            }
+
+            let b := mload(0x40)
+            let s := add(b, 0x100)
+            calldatacopy(s, calldatasize(), 0x40)
+            mcopy(add(0x40, s), add(0x20, message), mload(message))
+            let o := add(add(0x40, s), mload(message))
+            mstore(o, shl(240, 256))
+            let b0 := sha2(s, sub(dstPrime(add(0x02, o), 0), s))
+            mstore(0x20, b0)
+            mstore(s, b0)
+            mstore(b, sha2(s, sub(dstPrime(add(0x20, s), 1), s)))
+            let j := b
+            for { let i := 2 } 1 { } {
+                mstore(s, xor(b0, mload(j)))
+                j := add(j, 0x20)
+                mstore(j, sha2(s, sub(dstPrime(add(0x20, s), i), s)))
+                i := add(i, 1)
+                if eq(i, 9) { break }
+            }
+
+            mstore(add(s, 0x00), 0x40)
+            mstore(add(s, 0x20), 0x20)
+            mstore(add(s, 0x40), 0x40)
+            mstore(add(s, 0xa0), 1)
+            mstore(add(s, 0xc0), 0x000000000000000000000000000000001a0111ea397fe69a4b1ba7b6434bacd7)
+            mstore(add(s, 0xe0), 0x64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab)
+            modfield(s, add(b, 0x00))
+            modfield(s, add(b, 0x40))
+            modfield(s, add(b, 0x80))
+            modfield(s, add(b, 0xc0))
+
+            mapToG2(b, result)
+            mapToG2(add(0x80, b), add(0x100, result))
+
+            if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100))) {
+                mstore(0x00, 0xc55e5e33) // `G2AddFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
     /// @notice Converts a private key to a public key by multiplying the generator point with the private key
     /// @param privateKey The private key to convert
     /// @return The public key
@@ -164,7 +258,7 @@ library BLSUtils {
         bytes32 signingRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
 
         // Convert the signing root hash to a G2 point
-        return BLS.hashToG2(abi.encodePacked(signingRoot));
+        return _hashToG2(abi.encodePacked(signingRoot));
     }
 
     /// @notice Signs a message
