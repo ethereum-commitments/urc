@@ -389,6 +389,8 @@ contract Registry is IRegistry {
                 && keccak256(abi.encode(delegationOne.delegation.delegate))
                     == keccak256(abi.encode(delegationTwo.delegation.delegate))
                 && delegationOne.delegation.committer == delegationTwo.delegation.committer
+                && keccak256(abi.encode(delegationOne.delegation.metadata))
+                    == keccak256(abi.encode(delegationTwo.delegation.metadata))
         ) {
             revert DelegationsAreSame();
         }
