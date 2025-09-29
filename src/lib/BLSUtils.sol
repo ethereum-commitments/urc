@@ -249,11 +249,14 @@ library BLSUtils {
         bytes32 messageHash,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) internal view returns (BLS.G2Point memory) {
         bytes32 subTreeRoot = sha256(
-            abi.encodePacked(sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId)))
+            abi.encodePacked(
+                sha256(abi.encodePacked(messageHash, signingId)),
+                sha256(abi.encodePacked(_toLittleEndian(nonce), chainId))
+            )
         );
         bytes32 signingRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
 
@@ -274,7 +277,7 @@ library BLSUtils {
         bytes32 messageHash,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) internal view returns (BLS.G2Point memory) {
         return mul(computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId), _u(privateKey));
@@ -295,7 +298,7 @@ library BLSUtils {
         BLS.G1Point memory publicKey,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) public view returns (bool) {
         // Hash the message bytes into a G2 point
@@ -335,5 +338,16 @@ library BLSUtils {
         }
 
         return r;
+    }
+
+    /// @notice Helper to convert a u64 to a little-endian bytes
+    /// @param x The u64 to convert
+    /// @return b The little-endian bytes
+    function _toLittleEndian(uint64 x) public pure returns (bytes32) {
+        bytes memory b = new bytes(8);
+        for (uint256 i = 0; i < 8; i++) {
+            b[i] = bytes1(uint8(x >> (8 * i)));
+        }
+        return bytes32(b);
     }
 }

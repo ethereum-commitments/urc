@@ -198,7 +198,7 @@ contract SlashingScript is BaseScript {
         (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
 
         // hardcoded committer
-        (address committer, uint256 committerPrivateKey) = makeAddrAndKey("committer");
+        (address _committer, uint256 _committerPrivateKey) = makeAddrAndKey("committer");
 
         // sign the delegation
         uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
@@ -207,13 +207,13 @@ contract SlashingScript is BaseScript {
             ISlasher.Delegation({
                 proposer: BLSUtils.toPublicKey(proposerPrivateKey),
                 delegate: BLSUtils.toPublicKey(0), // unused
-                committer: committer,
+                committer: _committer,
                 slot: 5,
                 metadata: ""
             }),
             signingDomain,
             keccak256("test-signing-id"),
-            keccak256(abi.encode(owner)),
+            uint64(0), // nonce
             chainId
         );
     }
@@ -235,19 +235,19 @@ contract SlashingScript is BaseScript {
         address dummySlasher = address(new DummySlasher());
 
         // hardcoded committer
-        (address committer, uint256 committerPrivateKey) = makeAddrAndKey("committer");
+        (address _committer, uint256 _committerPrivateKey) = makeAddrAndKey("committer");
 
         // sign the delegation
-        ISlasher.SignedDelegation memory signedDelegation = _testDelegation(owner, committer, committerPrivateKey);
+        ISlasher.SignedDelegation memory signedDelegation = _testDelegation(owner, _committer, _committerPrivateKey);
 
         // sign the commitment
         ISlasher.SignedCommitment memory signedCommitment =
-            _signTestCommitment(committerPrivateKey, dummySlasher, 0, "");
+            _signTestCommitment(_committerPrivateKey, dummySlasher, 0, "");
 
         // sanity check verify signature as the URC would
         address committerRecovered =
             ECDSA.recover(keccak256(abi.encode(signedCommitment.commitment)), signedCommitment.signature);
-        if (committerRecovered != committer) {
+        if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
 
@@ -262,7 +262,7 @@ contract SlashingScript is BaseScript {
         // sanity check read commitment from file
         ISlasher.SignedCommitment memory s = _readCommitment(commitmentFile);
         committerRecovered = ECDSA.recover(keccak256(abi.encode(s.commitment)), s.signature);
-        if (committerRecovered != committer) {
+        if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
 
@@ -270,7 +270,7 @@ contract SlashingScript is BaseScript {
         IRegistry registry = IRegistry(_registry);
 
         // Call optInToSlasher
-        registry.optInToSlasher(registrationRoot, dummySlasher, committer);
+        registry.optInToSlasher(registrationRoot, dummySlasher, _committer);
 
         console.log("Opted in to dummy slasher:", vm.toString(dummySlasher));
 

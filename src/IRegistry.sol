@@ -38,7 +38,7 @@ interface IRegistry {
         /// BLS signature
         BLS.G2Point signature;
         /// Nonce
-        bytes32 nonce;
+        uint64 nonce;
     }
 
     /// @notice Data about an operator
@@ -229,6 +229,7 @@ interface IRegistry {
     /// @dev - The registration root is invalid (InvalidRegistrationRoot)
     /// @dev - The collateral amount overflows the `collateralWei` field (CollateralOverflow)
     /// @dev - The owner address is 0 (InvalidOwnerAddress)
+    /// @dev It's assumed that the `signingId` is the same for all `SignedRegistration` structs
     /// @param registrations The BLS keys to register
     /// @param owner The authorized address to perform actions on behalf of the operator
     /// @param signingId The signing ID for the module (Commit-Boost)
@@ -449,6 +450,7 @@ interface IRegistry {
 
     /// @notice Returns a `RegistrationProof` for a given `SignedRegistration` array
     /// @dev This function is not intended to be called on-chain due to gas costs
+    /// @dev It's assumed that the `signingId` is the same for all `SignedRegistration` structs
     /// @param regs The array of all `SignedRegistration` structs submitted during the initial call to `register()`
     /// @param owner The owner address of the operator
     /// @param leafIndex The index of the leaf the proof is for

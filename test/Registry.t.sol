@@ -22,7 +22,7 @@ contract RegisterTester is UnitTestHelper {
 
     function test_register() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         basicRegistration(SECRET_KEY_1, collateral, operator, signingId, nonce);
     }
 
@@ -31,7 +31,7 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
         vm.expectRevert(IRegistry.InsufficientCollateral.selector);
@@ -43,7 +43,7 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -60,7 +60,7 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -78,11 +78,10 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](2);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
-        bytes32 nonce2 = keccak256(abi.encode(SECRET_KEY_2, operator));
-        registrations[1] = _createSignedRegistration(SECRET_KEY_2, operator, signingId, nonce2);
+        registrations[1] = _createSignedRegistration(SECRET_KEY_2, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
 
@@ -102,14 +101,12 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](3); // will be padded to 4
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
-        bytes32 nonce2 = keccak256(abi.encode(SECRET_KEY_1 + 1, operator));
-        registrations[1] = _createSignedRegistration(SECRET_KEY_1 + 1, operator, signingId, nonce2);
+        registrations[1] = _createSignedRegistration(SECRET_KEY_1 + 1, operator, signingId, nonce);
 
-        bytes32 nonce3 = keccak256(abi.encode(SECRET_KEY_1 + 2, operator));
-        registrations[2] = _createSignedRegistration(SECRET_KEY_1 + 2, operator, signingId, nonce3);
+        registrations[2] = _createSignedRegistration(SECRET_KEY_1 + 2, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
 
@@ -129,7 +126,7 @@ contract RegisterTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](size);
         for (uint256 i = 0; i < size; i++) {
-            bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1 + i, operator));
+            uint64 nonce = uint64(SECRET_KEY_1 + i);
             registrations[i] = _createSignedRegistration(SECRET_KEY_1 + i, operator, signingId, nonce);
         }
 
@@ -158,7 +155,7 @@ contract UnregisterTester is UnitTestHelper {
     function test_unregister() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -177,7 +174,7 @@ contract UnregisterTester is UnitTestHelper {
     function test_unregister_wrongOperator() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -192,7 +189,7 @@ contract UnregisterTester is UnitTestHelper {
     function test_unregister_alreadyUnregistered() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -221,7 +218,7 @@ contract OptInAndOutTester is UnitTestHelper {
     function test_optInAndOut() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -249,7 +246,7 @@ contract OptInAndOutTester is UnitTestHelper {
 
     function test_optInToSlasher_wrongOperator() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -268,7 +265,7 @@ contract OptInAndOutTester is UnitTestHelper {
 
     function test_optInToSlasher_alreadyOptedIn() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -290,7 +287,7 @@ contract OptInAndOutTester is UnitTestHelper {
 
     function test_optOutOfSlasher_wrongOperator() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -313,7 +310,7 @@ contract OptInAndOutTester is UnitTestHelper {
 
     function test_optOutOfSlasher_optInDelayNotMet() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
         bytes32 registrationRoot = registry.register{ value: collateral }(registrations, operator, signingId);
@@ -348,7 +345,7 @@ contract ClaimCollateralTester is UnitTestHelper {
     function test_claimCollateral() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -376,7 +373,7 @@ contract ClaimCollateralTester is UnitTestHelper {
     function test_claimCollateral_notUnregistered() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -391,7 +388,7 @@ contract ClaimCollateralTester is UnitTestHelper {
     function test_claimCollateral_delayNotMet() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -411,7 +408,7 @@ contract ClaimCollateralTester is UnitTestHelper {
     function test_claimCollateral_alreadyClaimed() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -446,7 +443,7 @@ contract AddCollateralTester is UnitTestHelper {
         uint256 collateral = registry.getConfig().minCollateralWei;
         vm.assume((addAmount + collateral) < uint256(2 ** 80));
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -468,7 +465,7 @@ contract AddCollateralTester is UnitTestHelper {
     function test_addCollateral_overflow() public {
         uint256 collateral = registry.getConfig().minCollateralWei;
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
@@ -513,7 +510,7 @@ contract SlashRegistrationTester is UnitTestHelper {
         BLS.G1Point memory pubkey = BLSUtils.toPublicKey(SECRET_KEY_1);
 
         // Use a different secret key to sign the registration
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_2, operator));
+        uint64 nonce = 1337;
         BLS.G2Point memory signature = _registrationSignature(SECRET_KEY_2, operator, signingId, nonce);
 
         registrations[0] = IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature, nonce: nonce });
@@ -553,7 +550,7 @@ contract SlashRegistrationTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(
@@ -604,11 +601,10 @@ contract SlashRegistrationTester is UnitTestHelper {
         uint256 collateral = 2 * registry.getConfig().minCollateralWei;
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](2);
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
-        bytes32 nonce2 = keccak256(abi.encode(SECRET_KEY_2, operator));
-        registrations[1] = _createSignedRegistration(SECRET_KEY_2, operator, signingId, nonce2);
+        registrations[1] = _createSignedRegistration(SECRET_KEY_2, operator, signingId, nonce);
 
         bytes32 registrationRoot = registry.register{ value: collateral }(
             registrations,
@@ -653,7 +649,7 @@ contract SlashRegistrationTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](size);
         for (uint256 i = 0; i < size; i++) {
-            bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1 + i, operator));
+            uint64 nonce = 1337;
             registrations[i] = _createSignedRegistration(SECRET_KEY_1 + i, operator, signingId, nonce);
         }
 
@@ -700,7 +696,7 @@ contract SlashRegistrationTester is UnitTestHelper {
         BLS.G1Point memory pubkey = BLSUtils.toPublicKey(SECRET_KEY_1);
 
         // Use a different secret key to sign the registration
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_2, operator));
+        uint64 nonce = 1337;
         BLS.G2Point memory signature = _registrationSignature(SECRET_KEY_2, operator, signingId, nonce);
 
         registrations[0] = IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature, nonce: nonce });
@@ -737,7 +733,7 @@ contract RentrancyTester is UnitTestHelper {
         ReentrantRegistrationContract reentrantContract = new ReentrantRegistrationContract(address(registry));
         vm.deal(address(reentrantContract), 1000 ether);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, address(reentrantContract)));
+        uint64 nonce = 1337;
         IRegistry.SignedRegistration[] memory registrations =
             _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract), signingId, nonce);
 
@@ -782,7 +778,7 @@ contract RentrancyTester is UnitTestHelper {
 
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
 
-        bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1, operator));
+        uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
         // frontrun to set withdrawal address to reentrantContract
@@ -817,7 +813,7 @@ contract RegisterGasTest is UnitTestHelper {
     function getRegistrations(uint256 n) internal view returns (IRegistry.SignedRegistration[] memory) {
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](n);
         for (uint256 i = 0; i < n; i++) {
-            bytes32 nonce = keccak256(abi.encode(SECRET_KEY_1 + i, operator));
+            uint64 nonce = uint64(SECRET_KEY_1 + i);
             registrations[i] = _createSignedRegistration(SECRET_KEY_1 + i, operator, signingId, nonce);
         }
         return registrations;

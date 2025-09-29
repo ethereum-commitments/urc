@@ -40,7 +40,7 @@ contract BaseScript is Script {
         address _owner,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) internal view returns (IRegistry.SignedRegistration memory signedRegistration) {
         BLS.G1Point memory pubkey = BLSUtils.toPublicKey(privateKey);
@@ -60,7 +60,7 @@ contract BaseScript is Script {
     ) internal view returns (IRegistry.SignedRegistration[] memory signedRegistrations) {
         signedRegistrations = new IRegistry.SignedRegistration[](_n);
         for (uint256 i = 0; i < _n; i++) {
-            bytes32 nonce = keccak256(abi.encode(privateKeyStart + i, _owner));
+            uint64 nonce = uint64(privateKeyStart + i);
             signedRegistrations[i] =
                 _signTestRegistration(privateKeyStart + i, _owner, signingDomain, signingId, nonce, chainId);
         }
@@ -72,12 +72,17 @@ contract BaseScript is Script {
         ISlasher.Delegation memory delegation,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) internal view returns (ISlasher.SignedDelegation memory signedDelegation) {
         bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
         BLS.G2Point memory signature = BLSUtils.sign(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
-        return ISlasher.SignedDelegation({ delegation: delegation, signature: signature });
+        return ISlasher.SignedDelegation({
+            delegation: delegation,
+            signature: signature,
+            nonce: nonce,
+            signingId: signingId
+        });
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
@@ -94,7 +99,7 @@ contract BaseScript is Script {
         BLS.G1Point memory proposer = BLSUtils.toPublicKey(_proposerPrivateKey);
         signedDelegations = new ISlasher.SignedDelegation[](_n);
         for (uint256 i = 0; i < _n; i++) {
-            bytes32 _nonce = keccak256(abi.encode(_delegatePrivateKeyStart + i, _committer));
+            uint64 _nonce = uint64(_delegatePrivateKeyStart + i);
             BLS.G1Point memory delegate = BLSUtils.toPublicKey(_delegatePrivateKeyStart + i);
             signedDelegations[i] = _signTestDelegation(
                 _proposerPrivateKey, // fixed proposer private key

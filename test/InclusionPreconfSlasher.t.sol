@@ -39,7 +39,6 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
     bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("mainnet"));
         registry = new Registry(defaultConfig());
         slasher = new InclusionPreconfSlasher(slashAmountWei, address(registry));
         delegatePubKey = BLSUtils.toPublicKey(SECRET_KEY_2);
@@ -68,7 +67,7 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             metadata: metadata,
             slot: slot,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: 1337
         });
 
         // Register operator to URC and signs delegation message
@@ -192,7 +191,7 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             metadata: metadata,
             slot: 0, // already expired
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, alice))
+            nonce: 1337
         });
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
@@ -325,6 +324,10 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
 
         // Verify challenger's balance decreased by bond amount
         assertEq(challenger.balance, challengerBalanceBefore - bond);
+
+        // To save on RPC calls, we pre-fill the blockhashes with the expected values
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber - 1, keccak256(inclusionProof.previousBlockHeaderRLP));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber, keccak256(inclusionProof.inclusionBlockHeaderRLP));
 
         // Prove the challenge is fraudulent (transaction was actually included)
         vm.prank(operator);

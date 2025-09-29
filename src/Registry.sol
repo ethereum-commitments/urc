@@ -243,7 +243,7 @@ contract Registry is IRegistry {
         // Reconstruct registration message
         bytes32 messageHash = keccak256(abi.encode(MessageType.Registration, operator.data.owner));
 
-        // Verify registration signature, note the domain separator mixin
+        // Verify registration signature
         if (
             BLSUtils.verify(
                 messageHash,
@@ -738,15 +738,17 @@ contract Registry is IRegistry {
     /// @notice Verifies a delegation was signed by an operator's registered BLS key
     /// @dev The function will return revert if either the registration proof is invalid
     /// @dev or the Delegation signature is invalid
-    /// @dev The `signedDelegation.signature` is expected to be the abi-encoded `Delegation` message mixed with the URC's `DELEGATION_DOMAIN_SEPARATOR`.
     /// @param proof The merkle proof to verify the operator's key is in the registry
-    /// @param delegation The SignedDelegation signed by the operator's BLS key
-    function _verifyDelegation(RegistrationProof calldata proof, ISlasher.SignedDelegation calldata delegation)
+    /// @param signedDelegation The SignedDelegation signed by the operator's BLS key
+    function _verifyDelegation(RegistrationProof calldata proof, ISlasher.SignedDelegation calldata signedDelegation)
         internal
         view
     {
         // Verify the public key in the proof is the same as the public key in the SignedDelegation
-        if (keccak256(abi.encode(proof.registration.pubkey)) != keccak256(abi.encode(delegation.delegation.proposer))) {
+        if (
+            keccak256(abi.encode(proof.registration.pubkey))
+                != keccak256(abi.encode(signedDelegation.delegation.proposer))
+        ) {
             revert InvalidProof();
         }
 
@@ -754,17 +756,17 @@ contract Registry is IRegistry {
         _verifyMerkleProof(proof);
 
         // Reconstruct Delegation message
-        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, delegation.delegation));
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, signedDelegation.delegation));
 
         // Verify it was signed by the registered BLS key
         if (
             !BLSUtils.verify(
                 messageHash,
-                delegation.signature,
-                delegation.delegation.proposer,
+                signedDelegation.signature,
+                signedDelegation.delegation.proposer,
                 config.signingDomain,
-                proof.signingId,
-                proof.registration.nonce,
+                signedDelegation.signingId,
+                signedDelegation.nonce,
                 config.chainId
             )
         ) {

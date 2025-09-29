@@ -54,7 +54,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -118,7 +118,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -147,7 +147,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -180,7 +180,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -213,7 +213,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -242,7 +242,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -310,7 +310,7 @@ contract SlashCommitmentTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -388,7 +388,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -451,7 +451,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -494,7 +494,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -537,7 +537,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -566,7 +566,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -603,7 +603,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -639,7 +639,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -711,7 +711,7 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
             metadata: "",
             slot: 0,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -772,7 +772,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -793,7 +793,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        bytes32 nonce = keccak256(abi.encode(params.proposerSecretKey, operator));
+        uint64 nonce = uint64(1337);
         ISlasher.SignedDelegation memory signedDelegationTwo =
             signDelegation(params.proposerSecretKey, delegationTwo, signingId, nonce);
 
@@ -830,7 +830,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -847,7 +847,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: ""
         });
 
-        bytes32 nonce = keccak256(abi.encode(params.proposerSecretKey, operator));
+        uint64 nonce = uint64(1337);
         ISlasher.SignedDelegation memory signedDelegationTwo =
             signDelegation(params.proposerSecretKey, delegationTwo, signingId, nonce);
 
@@ -868,7 +868,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -912,7 +912,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -943,7 +943,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: 1000,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -982,7 +982,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -1029,7 +1029,7 @@ contract SlashEquivocationTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -1098,7 +1098,7 @@ contract SlashReentrantTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, address(0)))
+            nonce: uint64(1337)
         });
 
         (RegisterAndDelegateResult memory result, address reentrantContractAddress) =
@@ -1200,7 +1200,7 @@ contract SlashConditionTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
@@ -1253,7 +1253,7 @@ contract SlashConditionTester is UnitTestHelper {
             metadata: "",
             slot: uint64(UINT256_MAX),
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: uint64(1337)
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);

@@ -32,7 +32,7 @@ contract UnitTestHelper is Test {
     }
 
     /// @dev Helper to create a BLS signature for a registration
-    function _registrationSignature(uint256 secretKey, address owner, bytes32 signingId, bytes32 nonce)
+    function _registrationSignature(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
         internal
         view
         returns (BLS.G2Point memory)
@@ -43,7 +43,7 @@ contract UnitTestHelper is Test {
     }
 
     /// @dev Creates a Registration struct with a real BLS keypair
-    function _createSignedRegistration(uint256 secretKey, address owner, bytes32 signingId, bytes32 nonce)
+    function _createSignedRegistration(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
         internal
         view
         returns (IRegistry.SignedRegistration memory)
@@ -71,7 +71,7 @@ contract UnitTestHelper is Test {
         assertEq(operatorData.slashedAt, expectedSlashedAt, "Wrong slashed timestamp");
     }
 
-    function _setupSingleRegistration(uint256 secretKey, address owner, bytes32 signingId, bytes32 nonce)
+    function _setupSingleRegistration(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
         internal
         view
         returns (IRegistry.SignedRegistration[] memory)
@@ -111,7 +111,7 @@ contract UnitTestHelper is Test {
         assertEq(address(registry).balance, _urcBalanceBefore - _slashedAmount - _rewardAmount, "urc balance incorrect");
     }
 
-    function basicRegistration(uint256 secretKey, uint256 collateral, address owner, bytes32 signingId, bytes32 nonce)
+    function basicRegistration(uint256 secretKey, uint256 collateral, address owner, bytes32 signingId, uint64 nonce)
         public
         returns (bytes32 registrationRoot, IRegistry.SignedRegistration[] memory registrations)
     {
@@ -135,7 +135,7 @@ contract UnitTestHelper is Test {
         signedCommitment = ISlasher.SignedCommitment({ commitment: commitment, signature: signature });
     }
 
-    function signDelegation(uint256 secretKey, ISlasher.Delegation memory delegation, bytes32 signingId, bytes32 nonce)
+    function signDelegation(uint256 secretKey, ISlasher.Delegation memory delegation, bytes32 signingId, uint64 nonce)
         public
         view
         returns (ISlasher.SignedDelegation memory)
@@ -145,7 +145,12 @@ contract UnitTestHelper is Test {
         bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
         BLS.G2Point memory signature =
             BLSUtils.sign(secretKey, messageHash, config.signingDomain, signingId, nonce, config.chainId);
-        return ISlasher.SignedDelegation({ delegation: delegation, signature: signature });
+        return ISlasher.SignedDelegation({
+            delegation: delegation,
+            signature: signature,
+            nonce: nonce,
+            signingId: signingId
+        });
     }
 
     struct RegisterAndDelegateParams {
@@ -159,7 +164,7 @@ contract UnitTestHelper is Test {
         bytes metadata;
         uint64 slot;
         bytes32 signingId;
-        bytes32 nonce;
+        uint64 nonce;
     }
 
     struct RegisterAndDelegateResult {

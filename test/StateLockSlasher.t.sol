@@ -39,7 +39,6 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
     bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("mainnet"));
         slasher = new StateLockSlasher(slashAmountWei);
         registry = new Registry(defaultConfig());
         (committer, committerSecretKey) = makeAddrAndKey("commitmentsKey");
@@ -124,7 +123,7 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
             metadata: metadata,
             slot: slot,
             signingId: signingId,
-            nonce: keccak256(abi.encode(SECRET_KEY_1, operator))
+            nonce: 1337
         });
 
         // Register operator to URC and signs delegation message
@@ -206,6 +205,11 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
 
         IRegistry.RegistrationProof memory proof =
             registry.getRegistrationProof(result.registrations, operatorData.owner, 0, signingId);
+
+        // To save on RPC calls, we pre-fill the blockhashes with the expected values
+        PreconfStructs.InclusionProof memory inclusionProof = abi.decode(evidence, (InclusionProof));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber - 1, keccak256(inclusionProof.previousBlockHeaderRLP));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber, keccak256(inclusionProof.inclusionBlockHeaderRLP));
 
         // Slash via URC
         vm.startPrank(challenger);

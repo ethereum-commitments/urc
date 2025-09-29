@@ -15,7 +15,7 @@ contract BLSTest is Test {
         bytes32 messageHash,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) public view {
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(privateKey);
@@ -30,7 +30,7 @@ contract BLSTest is Test {
         bytes32 messageHash,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) public view {
         // public keys
@@ -62,7 +62,7 @@ contract BLSTest is Test {
         bytes32 messageHash,
         bytes32 signingDomain,
         bytes32 signingId,
-        bytes32 nonce,
+        uint64 nonce,
         bytes32 chainId
     ) public view {
         BLS.G2Point memory signingRoot =
@@ -70,7 +70,10 @@ contract BLSTest is Test {
 
         // Compute expected signing root manually
         bytes32 subTreeRoot = sha256(
-            abi.encodePacked(sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId)))
+            abi.encodePacked(
+                sha256(abi.encodePacked(messageHash, signingId)),
+                sha256(abi.encodePacked(BLSUtils._toLittleEndian(nonce), chainId))
+            )
         );
         bytes32 expectedSigningRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
         BLS.G2Point memory expected = BLSUtils._hashToG2(abi.encodePacked(expectedSigningRoot));
@@ -142,7 +145,7 @@ contract BLSTest is Test {
         bytes32 signingId = bytes32(0x2222222222222222222222222222222222222222222222222222222222222222);
 
         // Commit-Boost nonce
-        bytes32 nonce = bytes32(0x0000000000000000000000000000000000000000000000000000000000000420);
+        uint64 nonce = uint64(0x0420);
 
         // Commit-Boost chain ID
         bytes32 chainId = bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
@@ -207,8 +210,6 @@ contract BLSTest is Test {
             metadata: "some-metadata-here"
         });
 
-        console.logBytes32(keccak256(abi.encode(uint256(2), delegation)));
-
         // Commit-Boost signing domain
         bytes32 signingDomain = bytes32(0x00000000000000000000000000000000000000000000000000000000436f6d6d);
 
@@ -216,7 +217,7 @@ contract BLSTest is Test {
         bytes32 signingId = bytes32(0x2222222222222222222222222222222222222222222222222222222222222222);
 
         // Commit-Boost nonce
-        bytes32 nonce = bytes32(0x0000000000000000000000000000000000000000000000000000000000000420);
+        uint64 nonce = uint64(0x0420);
 
         // Commit-Boost chain ID
         bytes32 chainId = bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
@@ -289,7 +290,7 @@ contract BLSTest is Test {
         bytes32 signingId = bytes32(0xcb005700fab121c00ccbc94db58c04675b7847c38f9583815139d1d98bea0cb0);
 
         // u64::MAX - 1 as little endian
-        bytes32 nonce = bytes32(0xfeffffffffffffff000000000000000000000000000000000000000000000000);
+        uint64 nonce = type(uint64).max - 1;
 
         // Hoodi is 560048, as little endian
         bytes32 chainId = bytes32(0xb08b080000000000000000000000000000000000000000000000000000000000);
@@ -302,7 +303,8 @@ contract BLSTest is Test {
             abi.encodePacked(
                 sha256(
                     abi.encodePacked(
-                        sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId))
+                        sha256(abi.encodePacked(messageHash, signingId)),
+                        sha256(abi.encodePacked(BLSUtils._toLittleEndian(nonce), chainId))
                     )
                 ),
                 signingDomain
@@ -350,7 +352,7 @@ contract BLSTest is Test {
         bytes32 signingId = bytes32(0xcb005700fab121c00ccbc94db58c04675b7847c38f9583815139d1d98bea0cb0);
 
         // u64::MAX - 1 as little endian
-        bytes32 nonce = bytes32(0xfeffffffffffffff000000000000000000000000000000000000000000000000);
+        uint64 nonce = type(uint64).max - 1;
 
         // Hoodi is 560048, as little endian
         bytes32 chainId = bytes32(0xb08b080000000000000000000000000000000000000000000000000000000000);
@@ -411,25 +413,25 @@ contract BLSGasTest is Test {
 
     function testG2AddGas() public {
         BLS.G2Point memory g2A =
-            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
 
         BLS.G2Point memory g2B =
-            BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+            BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLS.add(g2A, g2B);
     }
 
     function testG2MulGas() public {
         BLS.G2Point memory g2A =
-            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+            BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLSUtils.mul(g2A, BLSUtils._u(1234));
     }
 
     function testG2MSMGas() public {
         BLS.G2Point[] memory points = new BLS.G2Point[](2);
-        points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
-        points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+        points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
+        points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         bytes32[] memory scalars = new bytes32[](2);
         scalars[0] = BLSUtils._u(1234);
         scalars[1] = BLSUtils._u(5678);
@@ -442,8 +444,8 @@ contract BLSGasTest is Test {
         g1Points[0] = BLSUtils.toPublicKey(1234);
         g1Points[1] = BLSUtils.toPublicKey(5678);
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
-        g2Points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
-        g2Points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), bytes32(0), bytes32(uint256(1)));
+        g2Points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
+        g2Points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         vm.resetGasMetering();
         BLS.pairing(g1Points, g2Points);
     }
@@ -462,22 +464,22 @@ contract BLSGasTest is Test {
 
     function testSigningGas() public {
         BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
-            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(1234);
         vm.resetGasMetering();
         BLSUtils.sign(
-            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
     }
 
     function testVerifyingSingleSignatureGas() public {
         BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
-            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+            keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(1234);
         BLS.G2Point memory signature = BLSUtils.sign(
-            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), bytes32(0), bytes32(uint256(1))
+            1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
 
         vm.resetGasMetering();
@@ -487,7 +489,7 @@ contract BLSGasTest is Test {
             publicKey,
             bytes32(uint256(keccak256("domain"))),
             bytes32(0),
-            bytes32(0),
+            uint64(0),
             bytes32(uint256(1))
         );
     }
