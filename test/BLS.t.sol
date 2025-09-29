@@ -73,7 +73,7 @@ contract BLSTest is Test {
             abi.encodePacked(sha256(abi.encodePacked(messageHash, signingId)), sha256(abi.encodePacked(nonce, chainId)))
         );
         bytes32 expectedSigningRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
-        BLS.G2Point memory expected = BLS.hashToG2(abi.encodePacked(expectedSigningRoot));
+        BLS.G2Point memory expected = BLSUtils._hashToG2(abi.encodePacked(expectedSigningRoot));
 
         assert(
             signingRoot.x_c0_a == expected.x_c0_a && signingRoot.x_c0_b == expected.x_c0_b
