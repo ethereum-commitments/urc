@@ -22,12 +22,12 @@ interface ISlasher {
     struct SignedDelegation {
         /// The delegation message
         Delegation delegation;
-        /// The signature of the delegation message
-        BLS.G2Point signature;
         /// The nonce of the delegation message
         uint64 nonce;
         /// The signing ID of the delegation message (Commit-Boost)
         bytes32 signingId;
+        /// The signature of the delegation message
+        BLS.G2Point signature;
     }
 
     /// @notice A Commitment message binding an opaque payload to a slasher contract
