@@ -20,7 +20,7 @@ The URC will verify two types of BLS signatures:
 
 The messages are expected to be formatted as follows:
 - `bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Registration, owner));` where `owner` is an `address`
-- `bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));` where `delegation` is a `ISlasher.Delegation`
+- `bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));` where `delegation` is an `ISlasher.Delegation`
 
 The URC complies with the [Signing API defined in Commit-Boost](https://github.com/Commit-Boost/commit-boost-client/blob/2dfe96b8d45d9c2bb37f71d56130a066dec16ec8/crates/common/src/types.rs#L296). 
 ```
@@ -55,5 +55,9 @@ This can be visualized as the following, where each intermediate hash uses SHA25
              /    \         /   \
     messageHash signingId  nonce chainId
 ```
-- Note `messageHash` is equivalent to `PropCommitSigningInfo.data`
-- Note that the `nonce` and `chain_id` are encoded as little-endian `bytes32`.
+
+Notes:
+- `messageHash` is equivalent to `PropCommitSigningInfo.data`
+- the `nonce` and `chain_id` are encoded as little-endian `bytes32`.
+- the `nonce` and `signingId` aren't tracked by the URC but is mixed in with the signature according to the Commit-Boost signing spec. 
+- the `signingDomain` is the precalculated `compute_domain()` value from Commit-Boost for the specific chain the URC is deployed on.
