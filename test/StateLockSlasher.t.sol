@@ -184,7 +184,15 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
         bytes32 inclusionTxRoot = slasher._decodeBlockHeaderRLP(inclusionProof.inclusionBlockHeaderRLP).txRoot;
         assertEq(inclusionTxRoot, vm.parseJsonBytes32(txProof, ".root"));
 
-        signedCommitment = basicCommitment(committerSecretKey, address(slasher), abi.encode(commitment));
+        signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(commitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         evidence = abi.encode(inclusionProof);
     }

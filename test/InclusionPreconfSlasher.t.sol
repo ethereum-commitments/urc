@@ -99,7 +99,15 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         // Delegate signs a commitment to include a TX
         TransactionCommitment memory txCommitment =
             _createInclusionCommitment(inclusionBlockNumber, id, committer, committerSecretKey);
-        signedCommitment = basicCommitment(committerSecretKey, address(slasher), abi.encode(txCommitment));
+        signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(txCommitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Build the inclusion proof to prove failure to exclude
         string memory rawPreviousHeader = vm.readFile("./test/testdata/header_20785011.json");
@@ -201,8 +209,15 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         TransactionCommitment memory commitment =
             _createInclusionCommitment(inclusionBlockNumber, 1, delegate, delegatePK);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(committerSecretKey, address(slasher), abi.encode(commitment));
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(commitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Try to create challenge with expired delegation
         uint256 bond = slasher.CHALLENGE_BOND();

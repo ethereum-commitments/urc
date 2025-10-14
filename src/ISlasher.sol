@@ -30,8 +30,8 @@ interface ISlasher {
         BLS.G2Point signature;
     }
 
-    /// @notice A Commitment message binding an opaque payload to a slasher contract
-    struct Commitment {
+    /// @notice A CommitmentRequest message binding an opaque payload to a slasher contract
+    struct CommitmentRequest {
         /// The type of commitment
         uint64 commitmentType;
         /// The payload of the commitment
@@ -40,10 +40,26 @@ interface ISlasher {
         address slasher;
     }
 
+    /// @notice A Commitment message binding an opaque payload to a slasher contract
+    struct Commitment {
+        /// The type of commitment
+        uint64 commitmentType;
+        /// The payload of the commitment
+        bytes payload;
+        /// The hash of the commitment request
+        bytes32 requestHash;
+        /// The address of the slasher contract
+        address slasher;
+    }
+
     /// @notice A commitment message signed by a delegate's ECDSA key
     struct SignedCommitment {
         /// The commitment message
         Commitment commitment;
+        /// The nonce of the commitment message
+        uint64 nonce;
+        /// The signing ID of the commitment message (Commit-Boost)
+        bytes32 signingId;
         /// The signature of the commitment message
         bytes signature;
     }

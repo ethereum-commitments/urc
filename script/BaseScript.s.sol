@@ -7,6 +7,7 @@ import "../src/lib/MerkleTree.sol";
 import "../src/ISlasher.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
 
 contract BaseScript is Script {
     function _getDefaultJson(string memory _outfile, string memory _default)
@@ -119,16 +120,41 @@ contract BaseScript is Script {
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
-    function _signTestCommitment(uint256 privateKey, address slasher, uint256 commitmentType, bytes memory payload)
-        internal
-        pure
-        returns (ISlasher.SignedCommitment memory signedCommitment)
-    {
-        ISlasher.Commitment memory commitment =
-            ISlasher.Commitment({ commitmentType: uint64(commitmentType), payload: payload, slasher: slasher });
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(abi.encode(commitment)));
+    function _signTestCommitment(
+        uint256 privateKey,
+        address slasher,
+        uint256 commitmentType,
+        bytes memory payload,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId,
+        bytes32 signingDomain
+    ) internal view returns (ISlasher.SignedCommitment memory signedCommitment) {
+        // Create CommitmentRequest and compute requestHash
+        ISlasher.CommitmentRequest memory request =
+            ISlasher.CommitmentRequest({ commitmentType: uint64(commitmentType), payload: payload, slasher: slasher });
+        bytes32 requestHash = keccak256(abi.encode(request));
+
+        // Create Commitment with requestHash
+        ISlasher.Commitment memory commitment = ISlasher.Commitment({
+            commitmentType: uint64(commitmentType),
+            payload: payload,
+            requestHash: requestHash,
+            slasher: slasher
+        });
+
+        // Sign using the new structured approach
+        bytes32 messageHash = keccak256(abi.encode(commitment));
+        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
         bytes memory signature = abi.encodePacked(r, s, v);
-        return ISlasher.SignedCommitment({ commitment: commitment, signature: signature });
+
+        return ISlasher.SignedCommitment({
+            commitment: commitment,
+            nonce: nonce,
+            signingId: signingId,
+            signature: signature
+        });
     }
 
     function _writeSignedRegistrations(

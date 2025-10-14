@@ -6,7 +6,8 @@ import "../src/IRegistry.sol";
 import "./BaseScript.s.sol";
 import "../src/ISlasher.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
-import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
+import { ECDSA } from "solady/utils/ECDSA.sol";
 
 import { DummySlasher } from "../test/Slasher.t.sol";
 
@@ -240,13 +241,25 @@ contract SlashingScript is BaseScript {
         // sign the delegation
         ISlasher.SignedDelegation memory signedDelegation = _testDelegation(owner, _committer, _committerPrivateKey);
 
+        // Get signing parameters
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+        bytes32 signingId = keccak256("test-signing-id");
+        uint64 nonce = 1;
+
         // sign the commitment
         ISlasher.SignedCommitment memory signedCommitment =
-            _signTestCommitment(_committerPrivateKey, dummySlasher, 0, "");
+            _signTestCommitment(_committerPrivateKey, dummySlasher, 0, "", signingId, nonce, chainId, signingDomain);
 
         // sanity check verify signature as the URC would
-        address committerRecovered =
-            ECDSA.recover(keccak256(abi.encode(signedCommitment.commitment)), signedCommitment.signature);
+        bytes32 messageHash = keccak256(abi.encode(signedCommitment.commitment));
+        address committerRecovered = ECDSAUtils.recover(
+            messageHash,
+            signedCommitment.signature,
+            signingDomain,
+            signedCommitment.signingId,
+            signedCommitment.nonce,
+            chainId
+        );
         if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
@@ -261,7 +274,8 @@ contract SlashingScript is BaseScript {
 
         // sanity check read commitment from file
         ISlasher.SignedCommitment memory s = _readCommitment(commitmentFile);
-        committerRecovered = ECDSA.recover(keccak256(abi.encode(s.commitment)), s.signature);
+        messageHash = keccak256(abi.encode(s.commitment));
+        committerRecovered = ECDSAUtils.recover(messageHash, s.signature, signingDomain, s.signingId, s.nonce, chainId);
         if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }

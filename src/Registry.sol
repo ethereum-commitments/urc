@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0 <0.9.0;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import { BLSUtils } from "./lib/BLSUtils.sol";
+import { ECDSAUtils } from "./lib/ECDSAUtils.sol";
 import { MerkleTree } from "./lib/MerkleTree.sol";
 import { IRegistry } from "./IRegistry.sol";
 import { ISlasher } from "./ISlasher.sol";
@@ -306,7 +305,14 @@ contract Registry is IRegistry {
         _verifyDelegation(proof, delegation);
 
         // Verify the commitment was signed by the commitment key from the Delegation
-        address committer = ECDSA.recover(keccak256(abi.encode(commitment.commitment)), commitment.signature);
+        address committer = ECDSAUtils.recover(
+            keccak256(abi.encode(commitment.commitment)),
+            commitment.signature,
+            config.signingDomain,
+            commitment.signingId,
+            commitment.nonce,
+            config.chainId
+        );
         if (committer != delegation.delegation.committer) {
             revert UnauthorizedCommitment();
         }
@@ -344,7 +350,14 @@ contract Registry is IRegistry {
         }
 
         // Verify the commitment was signed by the registered committer from the optInToSlasher() function
-        address committer = ECDSA.recover(keccak256(abi.encode(commitment.commitment)), commitment.signature);
+        address committer = ECDSAUtils.recover(
+            keccak256(abi.encode(commitment.commitment)),
+            commitment.signature,
+            config.signingDomain,
+            commitment.signingId,
+            commitment.nonce,
+            config.chainId
+        );
         if (committer != slasherCommitment.committer) {
             revert UnauthorizedCommitment();
         }

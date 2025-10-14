@@ -59,8 +59,15 @@ contract SlashCommitmentTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Setup proof
         IRegistry.RegistrationProof memory proof =
@@ -123,8 +130,15 @@ contract SlashCommitmentTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         IRegistry.RegistrationProof memory proof =
             registry.getRegistrationProof(result.registrations, operator, 0, signingId);
@@ -151,8 +165,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Create invalid proof,
         IRegistry.RegistrationProof memory proof = IRegistry.RegistrationProof({
@@ -185,8 +206,15 @@ contract SlashCommitmentTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Sign delegation with different secret key
         ISlasher.SignedDelegation memory badSignedDelegation =
@@ -217,8 +245,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         IRegistry.RegistrationProof memory proof =
             registry.getRegistrationProof(result.registrations, operator, 0, signingId);
@@ -246,8 +281,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Setup proof
         IRegistry.RegistrationProof memory proof =
@@ -276,7 +318,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         registry.slashCommitment(proof, result.signedDelegation, signedCommitment, evidence);
 
         // attempt to slash with different SignedCommitment
-        signedCommitment = basicCommitment(params.committerSecretKey, params.slasher, "different payload");
+        signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "different payload",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
         vm.expectRevert(IRegistry.SlashWindowExpired.selector);
         registry.slashCommitment(proof, result.signedDelegation, signedCommitment, evidence);
 
@@ -314,8 +364,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         });
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Setup proof
         IRegistry.RegistrationProof memory proof =
@@ -338,7 +395,15 @@ contract SlashCommitmentTester is UnitTestHelper {
         registry.slashCommitment(proof, result.signedDelegation, signedCommitment, evidence);
 
         // slash again with different SignedCommitment
-        signedCommitment = basicCommitment(params.committerSecretKey, params.slasher, "different payload");
+        signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "different payload",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
         vm.expectEmit(address(registry));
         emit IRegistry.OperatorSlashed(
             IRegistry.SlashingType.Commitment,
@@ -393,8 +458,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -456,8 +528,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -499,8 +578,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -520,7 +606,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
         vm.warp(block.timestamp + registry.getConfig().slashWindow + 1);
 
         // Try to slash again after window expired
-        signedCommitment = basicCommitment(params.committerSecretKey, params.slasher, "different payload");
+        signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "different payload",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
         vm.expectRevert(IRegistry.SlashWindowExpired.selector);
         registry.slashCommitment(result.registrationRoot, signedCommitment, "");
     }
@@ -542,8 +636,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Wait for fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -573,7 +674,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         // Create commitment signed by different key
         (address wrongCommitter, uint256 wrongCommitterKey) = makeAddrAndKey("wrongCommitter");
-        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(wrongCommitterKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            wrongCommitterKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -608,8 +717,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -644,8 +760,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);
@@ -716,8 +839,15 @@ contract SlashCommitmentFromOptInTester is UnitTestHelper {
 
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // skip past fraud proof window
         vm.warp(block.timestamp + registry.getConfig().fraudProofWindow + 1);

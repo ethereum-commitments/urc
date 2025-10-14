@@ -7,6 +7,7 @@ import "../src/IRegistry.sol";
 import "../src/ISlasher.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
 
 contract UnitTestHelper is Test {
     Registry registry;
@@ -122,17 +123,47 @@ contract UnitTestHelper is Test {
         _assertRegistration(registrationRoot, owner, uint80(collateral), uint48(block.timestamp), type(uint48).max, 0);
     }
 
-    function basicCommitment(uint256 secretKey, address slasher, bytes memory payload)
-        public
-        pure
-        returns (ISlasher.SignedCommitment memory signedCommitment)
-    {
-        ISlasher.Commitment memory commitment =
-            ISlasher.Commitment({ commitmentType: 0, payload: payload, slasher: slasher });
+    function sign(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (bytes memory signature) {
+        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
+        return abi.encodePacked(r, s, v);
+    }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(secretKey, keccak256(abi.encode(commitment)));
-        bytes memory signature = abi.encodePacked(r, s, v);
-        signedCommitment = ISlasher.SignedCommitment({ commitment: commitment, signature: signature });
+    function basicCommitment(
+        uint256 secretKey,
+        address slasher,
+        bytes memory payload,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId,
+        bytes32 signingDomain
+    ) public view returns (ISlasher.SignedCommitment memory signedCommitment) {
+        // Create CommitmentRequest and compute requestHash
+        ISlasher.CommitmentRequest memory request =
+            ISlasher.CommitmentRequest({ commitmentType: 0, payload: payload, slasher: slasher });
+        bytes32 requestHash = keccak256(abi.encode(request));
+
+        // Create Commitment with requestHash
+        ISlasher.Commitment memory commitment =
+            ISlasher.Commitment({ commitmentType: 0, payload: payload, requestHash: requestHash, slasher: slasher });
+
+        // Sign using the new structured approach
+        bytes32 messageHash = keccak256(abi.encode(commitment));
+        bytes memory signature = sign(secretKey, messageHash, signingDomain, signingId, nonce, chainId);
+
+        signedCommitment = ISlasher.SignedCommitment({
+            commitment: commitment,
+            nonce: nonce,
+            signingId: signingId,
+            signature: signature
+        });
     }
 
     function signDelegation(uint256 secretKey, ISlasher.Delegation memory delegation, bytes32 signingId, uint64 nonce)
@@ -230,8 +261,15 @@ contract UnitTestHelper is Test {
         ISlasher.SignedDelegation memory signedDelegationTwo =
             signDelegation(params.proposerSecretKey, delegationTwo, params.signingId, params.nonce);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // save info for later reentrancy
         reentrantContract.saveResult(params, result, signedCommitment, signedDelegationTwo);
