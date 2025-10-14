@@ -143,11 +143,9 @@ contract BaseScript is Script {
             slasher: slasher
         });
 
-        // Sign using the new structured approach
+        // Sign using ECDSA
         bytes32 messageHash = keccak256(abi.encode(commitment));
-        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature = _signECDSA(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
 
         return ISlasher.SignedCommitment({
             commitment: commitment,
@@ -155,6 +153,19 @@ contract BaseScript is Script {
             signingId: signingId,
             signature: signature
         });
+    }
+
+    function _signECDSA(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (bytes memory signature) {
+        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function _writeSignedRegistrations(

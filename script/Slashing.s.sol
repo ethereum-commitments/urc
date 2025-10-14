@@ -229,28 +229,66 @@ contract SlashingScript is BaseScript {
         string memory commitmentFile,
         bytes calldata evidence
     ) external {
-        // Start broadcasting transactions
         vm.startBroadcast();
 
-        // Deploy a dummy slasher contract
-        address dummySlasher = address(new DummySlasher());
+        // Deploy dummy slasher and get committer
+        (address dummySlasher, address _committer, uint256 _committerPrivateKey) = _deployDummySlasherAndGetCommitter();
 
-        // hardcoded committer
-        (address _committer, uint256 _committerPrivateKey) = makeAddrAndKey("committer");
+        // Create and sign delegation
+        ISlasher.SignedDelegation memory signedDelegation =
+            _createSignedDelegation(owner, _committer, _committerPrivateKey);
 
-        // sign the delegation
-        ISlasher.SignedDelegation memory signedDelegation = _testDelegation(owner, _committer, _committerPrivateKey);
+        // Create and sign commitment
+        ISlasher.SignedCommitment memory signedCommitment =
+            _createSignedCommitment(_committerPrivateKey, dummySlasher, _committer);
 
-        // Get signing parameters
+        // Write files and verify
+        _writeAndVerifyFiles(signedDelegation, signedCommitment, delegationFile, commitmentFile, _committer);
+
+        // Opt in to slasher
+        _optInToSlasher(_registry, registrationRoot, dummySlasher, _committer);
+
+        vm.stopBroadcast();
+    }
+
+    function _deployDummySlasherAndGetCommitter()
+        internal
+        returns (address dummySlasher, address _committer, uint256 _committerPrivateKey)
+    {
+        dummySlasher = address(new DummySlasher());
+        (_committer, _committerPrivateKey) = makeAddrAndKey("committer");
+    }
+
+    function _createSignedDelegation(address owner, address _committer, uint256 _committerPrivateKey)
+        internal
+        returns (ISlasher.SignedDelegation memory)
+    {
+        return _testDelegation(owner, _committer, _committerPrivateKey);
+    }
+
+    function _createSignedCommitment(uint256 _committerPrivateKey, address dummySlasher, address _committer)
+        internal
+        returns (ISlasher.SignedCommitment memory)
+    {
         (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
         bytes32 signingId = keccak256("test-signing-id");
         uint64 nonce = 1;
 
-        // sign the commitment
         ISlasher.SignedCommitment memory signedCommitment =
             _signTestCommitment(_committerPrivateKey, dummySlasher, 0, "", signingId, nonce, chainId, signingDomain);
 
-        // sanity check verify signature as the URC would
+        // Verify signature
+        _verifyCommitmentSignature(signedCommitment, _committer, signingDomain, chainId);
+
+        return signedCommitment;
+    }
+
+    function _verifyCommitmentSignature(
+        ISlasher.SignedCommitment memory signedCommitment,
+        address _committer,
+        bytes32 signingDomain,
+        bytes32 chainId
+    ) internal view {
         bytes32 messageHash = keccak256(abi.encode(signedCommitment.commitment));
         address committerRecovered = ECDSAUtils.recover(
             messageHash,
@@ -263,31 +301,44 @@ contract SlashingScript is BaseScript {
         if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
+    }
 
-        // write the signed delegation to file
+    function _writeAndVerifyFiles(
+        ISlasher.SignedDelegation memory signedDelegation,
+        ISlasher.SignedCommitment memory signedCommitment,
+        string memory delegationFile,
+        string memory commitmentFile,
+        address _committer
+    ) internal {
+        // Write delegation to file
         _writeDelegation(signedDelegation, delegationFile);
         console.log("wrote delegation to file:", delegationFile);
 
-        // write signed commitment to file
+        // Write commitment to file
         _writeCommitment(signedCommitment, commitmentFile);
         console.log("wrote commitment to file:", commitmentFile);
 
-        // sanity check read commitment from file
+        // Verify commitment from file
+        _verifyCommitmentFromFile(commitmentFile, _committer);
+    }
+
+    function _verifyCommitmentFromFile(string memory commitmentFile, address _committer) internal {
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
         ISlasher.SignedCommitment memory s = _readCommitment(commitmentFile);
-        messageHash = keccak256(abi.encode(s.commitment));
-        committerRecovered = ECDSAUtils.recover(messageHash, s.signature, signingDomain, s.signingId, s.nonce, chainId);
+        bytes32 messageHash = keccak256(abi.encode(s.commitment));
+        address committerRecovered =
+            ECDSAUtils.recover(messageHash, s.signature, signingDomain, s.signingId, s.nonce, chainId);
         if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
+    }
 
-        // Get reference to the registry
+    function _optInToSlasher(address _registry, bytes32 registrationRoot, address dummySlasher, address _committer)
+        internal
+    {
         IRegistry registry = IRegistry(_registry);
-
-        // Call optInToSlasher
         registry.optInToSlasher(registrationRoot, dummySlasher, _committer);
-
         console.log("Opted in to dummy slasher:", vm.toString(dummySlasher));
-
-        vm.stopBroadcast();
     }
 }
