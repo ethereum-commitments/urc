@@ -289,7 +289,7 @@ contract SlashingScript is BaseScript {
         bytes32 signingDomain,
         bytes32 chainId
     ) internal view {
-        bytes32 messageHash = keccak256(abi.encode(signedCommitment.commitment));
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, signedCommitment.commitment));
         address committerRecovered = ECDSAUtils.recover(
             messageHash,
             signedCommitment.signature,
@@ -326,7 +326,7 @@ contract SlashingScript is BaseScript {
         (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
 
         ISlasher.SignedCommitment memory s = _readCommitment(commitmentFile);
-        bytes32 messageHash = keccak256(abi.encode(s.commitment));
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, s.commitment));
         address committerRecovered =
             ECDSAUtils.recover(messageHash, s.signature, signingDomain, s.signingId, s.nonce, chainId);
         if (committerRecovered != _committer) {

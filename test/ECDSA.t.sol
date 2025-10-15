@@ -3,6 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "forge-std/Test.sol";
 import "../src/lib/ECDSAUtils.sol";
+import "../src/IRegistry.sol";
 import "../src/ISlasher.sol";
 
 /// @title ECDSAUtilsTest
@@ -155,7 +156,7 @@ contract ECDSAUtilsTest is Test {
         });
 
         // Compute message hash
-        bytes32 messageHash = keccak256(abi.encode(commitment));
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, commitment));
 
         // Sign the commitment
         bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, SIGNING_DOMAIN, SIGNING_ID, NONCE, CHAIN_ID);
@@ -208,10 +209,10 @@ contract ECDSAUtilsTest is Test {
             slasher: commitmentRequest.slasher
         });
 
-        // 0xded4394f844c5beaa81ce97f66016bb248871966d82bb8379d95ca78184dd650
-        bytes32 messageHash = keccak256(abi.encode(commitment));
+        // 0x310fefd12df340a4d723608aec3e7471ced2abe290a9458a5ba1832b9fc84653
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, commitment));
 
-        // 0x80575c16b5bcddf841dd3f51b93cc175554e03555479ee4b6e3363a8fff432b9
+        // 0x90447b3fac12f371cbb8aa2e1527f2abda7576cd618244c005cdb3c0d63e8a7b
         bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, SIGNING_DOMAIN, SIGNING_ID, NONCE, CHAIN_ID);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(PRIVATE_KEY, signingRoot);
@@ -219,7 +220,7 @@ contract ECDSAUtilsTest is Test {
 
         // Generated from Rust
         bytes memory expected =
-            hex"22cd56d133231753fc522d2dbc7bf32357230c07cd791632536945b566dd58e442e73a48e7c7a896229b027d3833e455a20d452bd204ead62a09bfd270cae9ee1c";
+            hex"f59f6fbee040a98021f55b8aaff8eecd4f1c1c9723ef7b5b9d09a0c0835bf94e20d90fc12a203bb9fcf81f7e838806bd3e67b82802d0bcd842163bd37c2cce581b";
 
         assert(keccak256(signature) == keccak256(expected));
 

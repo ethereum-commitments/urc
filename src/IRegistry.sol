@@ -98,7 +98,9 @@ interface IRegistry {
     enum MessageType {
         Reserved,
         Registration,
-        Delegation
+        Delegation,
+        Commitment,
+        Constraints
     }
 
     struct RegistrationProof {

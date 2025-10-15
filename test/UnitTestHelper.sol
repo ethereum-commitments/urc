@@ -155,7 +155,7 @@ contract UnitTestHelper is Test {
             ISlasher.Commitment({ commitmentType: 0, payload: payload, requestHash: requestHash, slasher: slasher });
 
         // Sign using the new structured approach
-        bytes32 messageHash = keccak256(abi.encode(commitment));
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, commitment));
         bytes memory signature = sign(secretKey, messageHash, signingDomain, signingId, nonce, chainId);
 
         signedCommitment = ISlasher.SignedCommitment({

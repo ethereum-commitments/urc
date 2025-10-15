@@ -304,7 +304,7 @@ contract Registry is IRegistry {
 
         // Verify the commitment was signed by the commitment key from the Delegation
         address committer = ECDSAUtils.recover(
-            keccak256(abi.encode(commitment.commitment)),
+            keccak256(abi.encode(MessageType.Commitment, commitment.commitment)),
             commitment.signature,
             config.signingDomain,
             commitment.signingId,
@@ -348,7 +348,7 @@ contract Registry is IRegistry {
 
         // Verify the commitment was signed by the registered committer from the optInToSlasher() function
         address committer = ECDSAUtils.recover(
-            keccak256(abi.encode(commitment.commitment)),
+            keccak256(abi.encode(MessageType.Commitment, commitment.commitment)),
             commitment.signature,
             config.signingDomain,
             commitment.signingId,
