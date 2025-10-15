@@ -71,9 +71,8 @@ contract Registry is IRegistry {
         newOperator.data.slashedAt = 0;
 
         // Store the initial collateral value in the history
-        newOperator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: uint80(msg.value) })
-        );
+        newOperator.collateralHistory
+            .push(CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: uint80(msg.value) }));
 
         emit OperatorRegistered(registrationRoot, msg.value, owner);
     }
@@ -243,8 +242,7 @@ contract Registry is IRegistry {
         bytes32 messageHash = keccak256(abi.encode(MessageType.Registration, operator.data.owner));
 
         // Verify registration signature
-        if (
-            BLSUtils.verify(
+        if (BLSUtils.verify(
                 messageHash,
                 proof.registration.signature,
                 proof.registration.pubkey,
@@ -252,8 +250,7 @@ contract Registry is IRegistry {
                 proof.signingId,
                 proof.registration.nonce,
                 config.chainId
-            )
-        ) {
+            )) {
             revert FraudProofChallengeInvalid();
         }
 
@@ -269,9 +266,10 @@ contract Registry is IRegistry {
         _rewardAndBurn(config.minCollateralWei / 2, msg.sender);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         emit OperatorSlashed(
             SlashingType.Fraud,
@@ -321,9 +319,8 @@ contract Registry is IRegistry {
         slashedBefore[slashingDigest] = true;
 
         // Call the Slasher contract to slash the operator
-        slashAmountWei = ISlasher(commitment.commitment.slasher).slash(
-            delegation.delegation, commitment.commitment, committer, evidence, msg.sender
-        );
+        slashAmountWei = ISlasher(commitment.commitment.slasher)
+            .slash(delegation.delegation, commitment.commitment, committer, evidence, msg.sender);
 
         // Handle the slashing accounting
         _slashCommitment(proof.registrationRoot, slashAmountWei, commitment.commitment.slasher);
@@ -374,9 +371,8 @@ contract Registry is IRegistry {
         ISlasher.Delegation memory dummyDelegation;
 
         // Call the Slasher contract to slash the operator
-        slashAmountWei = ISlasher(commitment.commitment.slasher).slash(
-            dummyDelegation, commitment.commitment, committer, evidence, msg.sender
-        );
+        slashAmountWei = ISlasher(commitment.commitment.slasher)
+            .slash(dummyDelegation, commitment.commitment, committer, evidence, msg.sender);
 
         // Handle the slashing accounting
         _slashCommitment(registrationRoot, slashAmountWei, commitment.commitment.slasher);
@@ -449,9 +445,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei -= uint80(config.minCollateralWei);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         // Burn half of the MIN_COLLATERAL amount and reward the challenger the other half
         _rewardAndBurn(config.minCollateralWei / 2, msg.sender);
@@ -491,9 +488,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei += uint80(msg.value);
 
         // Store the updated collateral value in the history
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         emit CollateralAdded(registrationRoot, operator.data.collateralWei);
     }
@@ -707,9 +705,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei -= uint80(slashAmountWei);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         // Burn the slashed amount
         _burnETH(slashAmountWei);
@@ -772,8 +771,7 @@ contract Registry is IRegistry {
         bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, signedDelegation.delegation));
 
         // Verify it was signed by the registered BLS key
-        if (
-            !BLSUtils.verify(
+        if (!BLSUtils.verify(
                 messageHash,
                 signedDelegation.signature,
                 signedDelegation.delegation.proposer,
@@ -781,8 +779,7 @@ contract Registry is IRegistry {
                 signedDelegation.signingId,
                 signedDelegation.nonce,
                 config.chainId
-            )
-        ) {
+            )) {
             revert DelegationSignatureInvalid();
         }
     }

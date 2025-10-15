@@ -159,10 +159,7 @@ contract UnitTestHelper is Test {
         bytes memory signature = sign(secretKey, messageHash, signingDomain, signingId, nonce, chainId);
 
         signedCommitment = ISlasher.SignedCommitment({
-            commitment: commitment,
-            nonce: nonce,
-            signingId: signingId,
-            signature: signature
+            commitment: commitment, nonce: nonce, signingId: signingId, signature: signature
         });
     }
 
@@ -176,12 +173,10 @@ contract UnitTestHelper is Test {
         bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
         BLS.G2Point memory signature =
             BLSUtils.sign(secretKey, messageHash, config.signingDomain, signingId, nonce, config.chainId);
-        return ISlasher.SignedDelegation({
-            delegation: delegation,
-            signature: signature,
-            nonce: nonce,
-            signingId: signingId
-        });
+        return
+            ISlasher.SignedDelegation({
+                delegation: delegation, signature: signature, nonce: nonce, signingId: signingId
+            });
     }
 
     struct RegisterAndDelegateParams {
@@ -209,8 +204,9 @@ contract UnitTestHelper is Test {
         returns (RegisterAndDelegateResult memory result)
     {
         // Single registration
-        (result.registrationRoot, result.registrations) =
-            basicRegistration(params.proposerSecretKey, params.collateral, params.owner, params.signingId, params.nonce);
+        (result.registrationRoot, result.registrations) = basicRegistration(
+            params.proposerSecretKey, params.collateral, params.owner, params.signingId, params.nonce
+        );
 
         // Sign delegation
         ISlasher.Delegation memory delegation = ISlasher.Delegation({

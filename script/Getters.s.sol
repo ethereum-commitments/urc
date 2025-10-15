@@ -66,10 +66,12 @@ contract GettersScript is BaseScript {
     }
 
     // forge script script/Getters.s.sol:GettersScript --sig "getSlasherCommitment(address,bytes32,address,string)" $REGISTRY_ADDRESS $REGISTRATION_ROOT $SLASHER $SLASHER_COMMITMENT_FILE --rpc-url $RPC_URL
-    function getSlasherCommitment(address _registry, bytes32 _registrationRoot, address _slasher, string memory outfile)
-        public
-        returns (IRegistry.SlasherCommitment memory slasherCommitment)
-    {
+    function getSlasherCommitment(
+        address _registry,
+        bytes32 _registrationRoot,
+        address _slasher,
+        string memory outfile
+    ) public returns (IRegistry.SlasherCommitment memory slasherCommitment) {
         // Get reference to the registry
         IRegistry registry = IRegistry(_registry);
 

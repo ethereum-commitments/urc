@@ -151,10 +151,7 @@ contract ECDSAUtilsTest is Test {
 
         // Create commitment
         ISlasher.Commitment memory commitment = ISlasher.Commitment({
-            commitmentType: 1,
-            payload: "test payload",
-            requestHash: requestHash,
-            slasher: address(0x123)
+            commitmentType: 1, payload: "test payload", requestHash: requestHash, slasher: address(0x123)
         });
 
         // Compute message hash
@@ -167,10 +164,7 @@ contract ECDSAUtilsTest is Test {
 
         // Create signed commitment
         ISlasher.SignedCommitment memory signedCommitment = ISlasher.SignedCommitment({
-            commitment: commitment,
-            nonce: NONCE,
-            signingId: SIGNING_ID,
-            signature: signature
+            commitment: commitment, nonce: NONCE, signingId: SIGNING_ID, signature: signature
         });
 
         // Verify the signature
@@ -204,9 +198,7 @@ contract ECDSAUtilsTest is Test {
 
     function testValidateRustCommitment() public {
         ISlasher.CommitmentRequest memory commitmentRequest = ISlasher.CommitmentRequest({
-            commitmentType: 1,
-            payload: "",
-            slasher: address(0x1111111111111111111111111111111111111111)
+            commitmentType: 1, payload: "", slasher: address(0x1111111111111111111111111111111111111111)
         });
 
         ISlasher.Commitment memory commitment = ISlasher.Commitment({

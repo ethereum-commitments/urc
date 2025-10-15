@@ -7,7 +7,9 @@ import "../src/IRegistry.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
 import {
-    UnitTestHelper, ReentrantRegistrationContract, ReentrantSlashableRegistrationContract
+    UnitTestHelper,
+    ReentrantRegistrationContract,
+    ReentrantSlashableRegistrationContract
 } from "./UnitTestHelper.sol";
 
 contract RegisterTester is UnitTestHelper {
@@ -553,7 +555,9 @@ contract SlashRegistrationTester is UnitTestHelper {
         uint64 nonce = 1337;
         registrations[0] = _createSignedRegistration(SECRET_KEY_1, operator, signingId, nonce);
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(
+        bytes32 registrationRoot = registry.register{
+            value: collateral
+        }(
             registrations,
             thief, // thief tries to frontrun operator by setting his address as withdrawal address
             signingId
@@ -606,7 +610,9 @@ contract SlashRegistrationTester is UnitTestHelper {
 
         registrations[1] = _createSignedRegistration(SECRET_KEY_2, operator, signingId, nonce);
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(
+        bytes32 registrationRoot = registry.register{
+            value: collateral
+        }(
             registrations,
             thief, // thief tries to frontrun operator by setting his address as withdrawal address
             signingId
@@ -653,7 +659,9 @@ contract SlashRegistrationTester is UnitTestHelper {
             registrations[i] = _createSignedRegistration(SECRET_KEY_1 + i, operator, signingId, nonce);
         }
 
-        bytes32 registrationRoot = registry.register{ value: collateral }(
+        bytes32 registrationRoot = registry.register{
+            value: collateral
+        }(
             registrations,
             thief, // submit different withdrawal address than the one signed by validator keys
             signingId
@@ -820,79 +828,90 @@ contract RegisterGasTest is UnitTestHelper {
     }
 
     function test_gas_register_1() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(1);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_2() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(2);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_4() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(4);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_8() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(8);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_16() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(16);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_32() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(32);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_64() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(64);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_128() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(128);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_256() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(256);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_512() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(512);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 
     function test_gas_register_1024() public {
+        vm.pauseGasMetering();
         IRegistry.SignedRegistration[] memory registrations = getRegistrations(1024);
-        vm.resetGasMetering();
         vm.startPrank(operator);
+        vm.resumeGasMetering();
         registry.register{ value: registry.getConfig().minCollateralWei }(registrations, operator, signingId);
     }
 }

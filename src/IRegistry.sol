@@ -12,7 +12,6 @@ interface IRegistry {
      *                                *
      *
      */
-
     /// @notice A struct to track the configuration of the registry
     struct Config {
         /// The minimum collateral required to register

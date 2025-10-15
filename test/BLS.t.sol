@@ -388,92 +388,103 @@ contract BLSTest is Test {
 
 contract BLSGasTest is Test {
     function testG1AddGas() public {
+        vm.pauseGasMetering();
         BLS.G1Point memory a = BLSUtils.toPublicKey(1234);
         BLS.G1Point memory b = BLSUtils.toPublicKey(5678);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.add(a, b);
     }
 
     function testG1MulGas() public {
+        vm.pauseGasMetering();
         BLS.G1Point memory a = BLSUtils.toPublicKey(1234);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLSUtils.mul(a, BLSUtils._u(1234));
     }
 
     function testG1MSMGas() public {
+        vm.pauseGasMetering();
         BLS.G1Point[] memory points = new BLS.G1Point[](2);
         points[0] = BLSUtils.toPublicKey(1234);
         points[1] = BLSUtils.toPublicKey(5678);
         bytes32[] memory scalars = new bytes32[](2);
         scalars[0] = BLSUtils._u(1234);
         scalars[1] = BLSUtils._u(5678);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.msm(points, scalars);
     }
 
     function testG2AddGas() public {
+        vm.pauseGasMetering();
         BLS.G2Point memory g2A =
             BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
 
         BLS.G2Point memory g2B =
             BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.add(g2A, g2B);
     }
 
     function testG2MulGas() public {
+        vm.pauseGasMetering();
         BLS.G2Point memory g2A =
             BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLSUtils.mul(g2A, BLSUtils._u(1234));
     }
 
     function testG2MSMGas() public {
+        vm.pauseGasMetering();
         BLS.G2Point[] memory points = new BLS.G2Point[](2);
         points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         bytes32[] memory scalars = new bytes32[](2);
         scalars[0] = BLSUtils._u(1234);
         scalars[1] = BLSUtils._u(5678);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.msm(points, scalars);
     }
 
     function testSinglePairingGas() public {
+        vm.pauseGasMetering();
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
         g1Points[0] = BLSUtils.toPublicKey(1234);
         g1Points[1] = BLSUtils.toPublicKey(5678);
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
         g2Points[0] = BLSUtils.sign(1234, keccak256("hello"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
         g2Points[1] = BLSUtils.sign(5678, keccak256("world"), bytes32(0), bytes32(0), uint64(0), bytes32(uint256(1)));
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.pairing(g1Points, g2Points);
     }
 
     function testMapFpToG1Gas() public {
+        vm.pauseGasMetering();
         BLS.Fp memory fp = BLS.Fp(BLSUtils._u(1234), BLSUtils._u(5678));
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.toG1(fp);
     }
 
     function testMapFp2ToG2Gas() public {
+        vm.pauseGasMetering();
         BLS.Fp2 memory fp2 = BLS.Fp2(BLSUtils._u(1234), BLSUtils._u(5678), BLSUtils._u(91011), BLSUtils._u(121314));
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLS.toG2(fp2);
     }
 
     function testSigningGas() public {
+        vm.pauseGasMetering();
         BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
             keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
         BLS.G1Point memory publicKey = BLSUtils.toPublicKey(1234);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLSUtils.sign(
             1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
     }
 
     function testVerifyingSingleSignatureGas() public {
+        vm.pauseGasMetering();
         BLS.G2Point memory signingRoot = BLSUtils.computeSigningRoot(
             keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
@@ -482,7 +493,7 @@ contract BLSGasTest is Test {
             1234, keccak256("hello"), bytes32(uint256(keccak256("domain"))), bytes32(0), uint64(0), bytes32(uint256(1))
         );
 
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLSUtils.verify(
             keccak256("hello"),
             signature,
@@ -495,8 +506,9 @@ contract BLSGasTest is Test {
     }
 
     function testG1PointCompressGas() public {
+        vm.pauseGasMetering();
         BLS.G1Point memory point = BLSUtils.toPublicKey(123456);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         BLSUtils.compress(point);
     }
 }

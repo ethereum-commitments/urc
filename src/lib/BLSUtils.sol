@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
+
 // Credit: https://github.com/paradigmxyz/forge-alphanet/blob/main/src/sign/BLS.sol
 
 /// @title BLS
@@ -175,8 +176,9 @@ library BLSUtils {
             }
 
             function mapToG2(s_, r_) {
-                if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100)))
-                {
+                if iszero(
+                    and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100))
+                ) {
                     mstore(0x00, 0x89083b91) // `MapFp2ToG2Failed()`.
                     revert(0x1c, 0x04)
                 }

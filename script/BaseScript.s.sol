@@ -78,12 +78,10 @@ contract BaseScript is Script {
     ) internal view returns (ISlasher.SignedDelegation memory signedDelegation) {
         bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
         BLS.G2Point memory signature = BLSUtils.sign(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
-        return ISlasher.SignedDelegation({
-            delegation: delegation,
-            signature: signature,
-            nonce: nonce,
-            signingId: signingId
-        });
+        return
+            ISlasher.SignedDelegation({
+                delegation: delegation, signature: signature, nonce: nonce, signingId: signingId
+            });
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
@@ -137,22 +135,17 @@ contract BaseScript is Script {
 
         // Create Commitment with requestHash
         ISlasher.Commitment memory commitment = ISlasher.Commitment({
-            commitmentType: uint64(commitmentType),
-            payload: payload,
-            requestHash: requestHash,
-            slasher: slasher
+            commitmentType: uint64(commitmentType), payload: payload, requestHash: requestHash, slasher: slasher
         });
 
         // Sign using ECDSA
         bytes32 messageHash = keccak256(abi.encode(commitment));
         bytes memory signature = _signECDSA(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
 
-        return ISlasher.SignedCommitment({
-            commitment: commitment,
-            nonce: nonce,
-            signingId: signingId,
-            signature: signature
-        });
+        return
+            ISlasher.SignedCommitment({
+                commitment: commitment, nonce: nonce, signingId: signingId, signature: signature
+            });
     }
 
     function _signECDSA(
