@@ -6,13 +6,14 @@ import "../src/IRegistry.sol";
 import "./BaseScript.s.sol";
 import "../src/ISlasher.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
-import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
+import { ECDSA } from "solady/utils/ECDSA.sol";
 
 import { DummySlasher } from "../test/Slasher.t.sol";
 
 contract SlashingScript is BaseScript {
-    // forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,string)" $REGISTRY_ADDRESS $OWNER $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
-    function registerBadRegistration(address _registry, address owner, string memory outfile)
+    // forge script script/Slashing.s.sol:SlashingScript --sig "registerBadRegistration(address,address,bytes32,string)" $REGISTRY_ADDRESS $OWNER $SIGNING_ID $SIGNED_REGISTRATIONS_FILE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
+    function registerBadRegistration(address _registry, address owner, bytes32 signingId, string memory outfile)
         external
         returns (bytes32 registrationRoot)
     {
@@ -22,8 +23,12 @@ contract SlashingScript is BaseScript {
         // Generate an invalid BLS registration using a deterministic private key
         uint256 privateKey = 12345;
 
+        // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
         // different owner address for invalid registration
-        IRegistry.SignedRegistration[] memory registrations = _nRegistrations(1, privateKey, address(1337));
+        IRegistry.SignedRegistration[] memory registrations =
+            _nRegistrations(1, privateKey, address(1337), signingDomain, signingId, chainId);
 
         // Get reference to the registry
         IRegistry registry = IRegistry(_registry);
@@ -35,7 +40,7 @@ contract SlashingScript is BaseScript {
         _prettyPrintPubKey(registrations[0]);
 
         // Register the invalid registration
-        registrationRoot = registry.register{ value: collateralWei }(registrations, owner);
+        registrationRoot = registry.register{ value: collateralWei }(registrations, owner, signingId);
 
         console.log("Registered bad registration with root:", vm.toString(registrationRoot));
 
@@ -75,8 +80,14 @@ contract SlashingScript is BaseScript {
         // For testing we assume the proposer private key is generated from their owner address
         // uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
         uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
+
+        // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+        bytes32 signingId = keccak256("test-signing-id");
+
         // Generate two delegations with the same proposer and slot but different delegates
-        ISlasher.SignedDelegation[] memory delegations = _nDelegations(2, proposerPrivateKey, 1, committer, slot);
+        ISlasher.SignedDelegation[] memory delegations =
+            _nDelegations(2, proposerPrivateKey, 1, committer, slot, signingDomain, signingId, chainId);
 
         // Write the delegations to files
         _writeDelegation(delegations[0], delegationOneFile);
@@ -180,6 +191,34 @@ contract SlashingScript is BaseScript {
         vm.stopBroadcast();
     }
 
+    function _testDelegation(address owner, address committer, uint256 committerPrivateKey)
+        internal
+        returns (ISlasher.SignedDelegation memory signedDelegation)
+    {
+        // Read the signing domain and chain ID from the config file
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
+        // hardcoded committer
+        (address _committer, uint256 _committerPrivateKey) = makeAddrAndKey("committer");
+
+        // sign the delegation
+        uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
+        signedDelegation = _signTestDelegation(
+            proposerPrivateKey,
+            ISlasher.Delegation({
+                proposer: BLSUtils.toPublicKey(proposerPrivateKey),
+                delegate: BLSUtils.toPublicKey(0), // unused
+                committer: _committer,
+                slot: 5,
+                metadata: ""
+            }),
+            signingDomain,
+            keccak256("test-signing-id"),
+            uint64(0), // nonce
+            chainId
+        );
+    }
+
     /// @dev NOT MEANT FOR PRODUCTION USE
     /// forge script script/Slashing.s.sol:SlashingScript --sig "prepareSlashing(address,address,bytes32,string,string,bytes)" $REGISTRY_ADDRESS $OWNER $REGISTRATION_ROOT $DELEGATION_ONE_FILE $COMMITMENT_FILE $EVIDENCE --account $FOUNDRY_WALLET --rpc-url $RPC_URL --broadcast
     function prepareSlashing(
@@ -190,62 +229,116 @@ contract SlashingScript is BaseScript {
         string memory commitmentFile,
         bytes calldata evidence
     ) external {
-        // Start broadcasting transactions
         vm.startBroadcast();
 
-        // Deploy a dummy slasher contract
-        address dummySlasher = address(new DummySlasher());
+        // Deploy dummy slasher and get committer
+        (address dummySlasher, address _committer, uint256 _committerPrivateKey) = _deployDummySlasherAndGetCommitter();
 
-        // hardcoded committer
-        (address committer, uint256 committerPrivateKey) = makeAddrAndKey("committer");
+        // Create and sign delegation
+        ISlasher.SignedDelegation memory signedDelegation =
+            _createSignedDelegation(owner, _committer, _committerPrivateKey);
 
-        // sign the delegation
-        uint256 proposerPrivateKey = uint256(keccak256(abi.encode(owner)));
-        ISlasher.SignedDelegation memory signedDelegation = _signTestDelegation(
-            proposerPrivateKey,
-            ISlasher.Delegation({
-                proposer: BLSUtils.toPublicKey(proposerPrivateKey),
-                delegate: BLSUtils.toPublicKey(0), // unused
-                committer: committer,
-                slot: 5,
-                metadata: ""
-            })
-        );
-
-        // sign the commitment
+        // Create and sign commitment
         ISlasher.SignedCommitment memory signedCommitment =
-            _signTestCommitment(committerPrivateKey, dummySlasher, 0, "");
+            _createSignedCommitment(_committerPrivateKey, dummySlasher, _committer);
 
-        // sanity check verify signature as the URC would
-        address committerRecovered =
-            ECDSA.recover(keccak256(abi.encode(signedCommitment.commitment)), signedCommitment.signature);
-        if (committerRecovered != committer) {
+        // Write files and verify
+        _writeAndVerifyFiles(signedDelegation, signedCommitment, delegationFile, commitmentFile, _committer);
+
+        // Opt in to slasher
+        _optInToSlasher(_registry, registrationRoot, dummySlasher, _committer);
+
+        vm.stopBroadcast();
+    }
+
+    function _deployDummySlasherAndGetCommitter()
+        internal
+        returns (address dummySlasher, address _committer, uint256 _committerPrivateKey)
+    {
+        dummySlasher = address(new DummySlasher());
+        (_committer, _committerPrivateKey) = makeAddrAndKey("committer");
+    }
+
+    function _createSignedDelegation(address owner, address _committer, uint256 _committerPrivateKey)
+        internal
+        returns (ISlasher.SignedDelegation memory)
+    {
+        return _testDelegation(owner, _committer, _committerPrivateKey);
+    }
+
+    function _createSignedCommitment(uint256 _committerPrivateKey, address dummySlasher, address _committer)
+        internal
+        returns (ISlasher.SignedCommitment memory)
+    {
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+        bytes32 signingId = keccak256("test-signing-id");
+        uint64 nonce = 1;
+
+        ISlasher.SignedCommitment memory signedCommitment =
+            _signTestCommitment(_committerPrivateKey, dummySlasher, 0, "", signingId, nonce, chainId, signingDomain);
+
+        // Verify signature
+        _verifyCommitmentSignature(signedCommitment, _committer, signingDomain, chainId);
+
+        return signedCommitment;
+    }
+
+    function _verifyCommitmentSignature(
+        ISlasher.SignedCommitment memory signedCommitment,
+        address _committer,
+        bytes32 signingDomain,
+        bytes32 chainId
+    ) internal view {
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, signedCommitment.commitment));
+        address committerRecovered = ECDSAUtils.recover(
+            messageHash,
+            signedCommitment.signature,
+            signingDomain,
+            signedCommitment.signingId,
+            signedCommitment.nonce,
+            chainId
+        );
+        if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
+    }
 
-        // write the signed delegation to file
+    function _writeAndVerifyFiles(
+        ISlasher.SignedDelegation memory signedDelegation,
+        ISlasher.SignedCommitment memory signedCommitment,
+        string memory delegationFile,
+        string memory commitmentFile,
+        address _committer
+    ) internal {
+        // Write delegation to file
         _writeDelegation(signedDelegation, delegationFile);
         console.log("wrote delegation to file:", delegationFile);
 
-        // write signed commitment to file
+        // Write commitment to file
         _writeCommitment(signedCommitment, commitmentFile);
         console.log("wrote commitment to file:", commitmentFile);
 
-        // sanity check read commitment from file
+        // Verify commitment from file
+        _verifyCommitmentFromFile(commitmentFile, _committer);
+    }
+
+    function _verifyCommitmentFromFile(string memory commitmentFile, address _committer) internal {
+        (bytes32 signingDomain, bytes32 chainId) = _defaultSigningParams();
+
         ISlasher.SignedCommitment memory s = _readCommitment(commitmentFile);
-        committerRecovered = ECDSA.recover(keccak256(abi.encode(s.commitment)), s.signature);
-        if (committerRecovered != committer) {
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, s.commitment));
+        address committerRecovered =
+            ECDSAUtils.recover(messageHash, s.signature, signingDomain, s.signingId, s.nonce, chainId);
+        if (committerRecovered != _committer) {
             revert("Recovered committer does not match");
         }
+    }
 
-        // Get reference to the registry
+    function _optInToSlasher(address _registry, bytes32 registrationRoot, address dummySlasher, address _committer)
+        internal
+    {
         IRegistry registry = IRegistry(_registry);
-
-        // Call optInToSlasher
-        registry.optInToSlasher(registrationRoot, dummySlasher, committer);
-
+        registry.optInToSlasher(registrationRoot, dummySlasher, _committer);
         console.log("Opted in to dummy slasher:", vm.toString(dummySlasher));
-
-        vm.stopBroadcast();
     }
 }

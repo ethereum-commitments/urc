@@ -70,13 +70,13 @@ library MerkleTree {
     /// ```
     ///
     /// The encoding consists of:
-    /// - 384 bytes for the `SignedRegistration` struct (G1 + G2 BLS points)
+    /// - 416 bytes for the `SignedRegistration` struct (G1 + G2 BLS points + nonce)
     /// - 32 bytes for the owner address (20-byte value left-padded with 12 zero bytes)
-    ///
+    /// - 32 bytes for the signing ID
     /// @param regs The array of `SignedRegistration` structs to hash
     /// @param owner The operator’s address to include in the leaf
     /// @return leaves The resulting array of hashed leaf nodes
-    function hashToLeaves(IRegistry.SignedRegistration[] calldata regs, address owner)
+    function hashToLeaves(IRegistry.SignedRegistration[] calldata regs, address owner, bytes32 signingId)
         internal
         pure
         returns (bytes32[] memory leaves)
@@ -84,8 +84,8 @@ library MerkleTree {
         assembly {
             // --- Constants ---
             let arrayLength := regs.length // Number of SignedRegistration structs
-            let structSize := 0x180 // Size of a SignedRegistration (384 bytes)
-            let encodingSize := 0x1a0 // 384 bytes (struct) + 32 bytes (address padded) = 416 bytes
+            let structSize := 0x1a0 // Size of a SignedRegistration (416 bytes)
+            let encodingSize := 0x1e0 // 416 bytes (struct) + 32 bytes (address padded) + 32 bytes (signingId) = 480 bytes
 
             // --- Allocate memory for output bytes32[] leaves ---
             leaves := mload(0x40) // Load the current free memory pointer
@@ -95,7 +95,7 @@ library MerkleTree {
 
             // --- Allocate scratch space for encoding one (struct, address) pair ---
             let tempBuffer := mload(0x40) // Load updated free memory pointer
-            mstore(0x40, add(tempBuffer, encodingSize)) // Reserve space for buffer (416 bytes)
+            mstore(0x40, add(tempBuffer, encodingSize)) // Reserve space for buffer (480 bytes)
 
             let leavesPtr := add(leaves, 0x20) // Pointer to first leaf slot (after length)
 
@@ -106,6 +106,9 @@ library MerkleTree {
 
                 // Append left-padded 20-byte address to the buffer
                 mstore(add(tempBuffer, structSize), owner)
+
+                // Append signing ID to the buffer
+                mstore(add(tempBuffer, add(structSize, 0x20)), signingId)
 
                 // Hash and store
                 mstore(add(leavesPtr, mul(i, 0x20)), keccak256(tempBuffer, encodingSize))

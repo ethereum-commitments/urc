@@ -3,5 +3,7 @@
     "fraudProofWindow": 7200,
     "unregistrationDelay": 7200,
     "slashWindow": 7200,
-    "optInDelay": 7200
+    "optInDelay": 7200,
+    "signingDomain": "0x6d6d6f43719103511efa4f1362ff2a50996cccf329cc84cb410c5e5c7d351d03",
+    "chainId": "0xb08b080000000000000000000000000000000000000000000000000000000000"
 } 

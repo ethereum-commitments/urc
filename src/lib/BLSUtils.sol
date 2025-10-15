@@ -2,12 +2,34 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
+
 // Credit: https://github.com/paradigmxyz/forge-alphanet/blob/main/src/sign/BLS.sol
 
 /// @title BLS
 /// @notice Utility functions to built on top of the Solady BLS library.
 library BLSUtils {
     using BLS for *;
+
+    /// @dev For addition of two points on the BLS12-381 G1 curve,
+    address internal constant BLS12_G1ADD = 0x000000000000000000000000000000000000000b;
+
+    /// @dev For multi-scalar multiplication (MSM) on the BLS12-381 G1 curve.
+    address internal constant BLS12_G1MSM = 0x000000000000000000000000000000000000000C;
+
+    /// @dev For addition of two points on the BLS12-381 G2 curve.
+    address internal constant BLS12_G2ADD = 0x000000000000000000000000000000000000000d;
+
+    /// @dev For multi-scalar multiplication (MSM) on the BLS12-381 G2 curve.
+    address internal constant BLS12_G2MSM = 0x000000000000000000000000000000000000000E;
+
+    /// @dev For performing a pairing check on the BLS12-381 curve.
+    address internal constant BLS12_PAIRING_CHECK = 0x000000000000000000000000000000000000000F;
+
+    /// @dev For mapping a Fp to a point on the BLS12-381 G1 curve.
+    address internal constant BLS12_MAP_FP_TO_G1 = 0x0000000000000000000000000000000000000010;
+
+    /// @dev For mapping a Fp2 to a point on the BLS12-381 G2 curve.
+    address internal constant BLS12_MAP_FP2_TO_G2 = 0x0000000000000000000000000000000000000011;
 
     /// @notice G1MUL operation
     /// @param point G1 point
@@ -128,6 +150,80 @@ library BLSUtils {
         return false;
     }
 
+    /// @dev Computes a point in G2 from a message.
+    /// @dev Copied from Solady but changed the DST from "SWU_RO_NUL_\x2b" to "SWU_RO_POP_\x2b"
+    function _hashToG2(bytes memory message) internal view returns (BLS.G2Point memory result) {
+        assembly ("memory-safe") {
+            function dstPrime(o_, i_) -> _o {
+                mstore8(o_, i_) // 1.
+                mstore(add(o_, 0x01), "BLS_SIG_BLS12381G2_XMD:SHA-256_S") // 32.
+                mstore(add(o_, 0x21), "SWU_RO_POP_\x2b") // 12.
+                _o := add(0x2d, o_)
+            }
+
+            function sha2(data_, n_) -> _h {
+                if iszero(and(eq(returndatasize(), 0x20), staticcall(gas(), 2, data_, n_, 0x00, 0x20))) {
+                    revert(calldatasize(), 0x00)
+                }
+                _h := mload(0x00)
+            }
+
+            function modfield(s_, b_) {
+                mcopy(add(s_, 0x60), b_, 0x40)
+                if iszero(and(eq(returndatasize(), 0x40), staticcall(gas(), 5, s_, 0x100, b_, 0x40))) {
+                    revert(calldatasize(), 0x00)
+                }
+            }
+
+            function mapToG2(s_, r_) {
+                if iszero(
+                    and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100))
+                ) {
+                    mstore(0x00, 0x89083b91) // `MapFp2ToG2Failed()`.
+                    revert(0x1c, 0x04)
+                }
+            }
+
+            let b := mload(0x40)
+            let s := add(b, 0x100)
+            calldatacopy(s, calldatasize(), 0x40)
+            mcopy(add(0x40, s), add(0x20, message), mload(message))
+            let o := add(add(0x40, s), mload(message))
+            mstore(o, shl(240, 256))
+            let b0 := sha2(s, sub(dstPrime(add(0x02, o), 0), s))
+            mstore(0x20, b0)
+            mstore(s, b0)
+            mstore(b, sha2(s, sub(dstPrime(add(0x20, s), 1), s)))
+            let j := b
+            for { let i := 2 } 1 { } {
+                mstore(s, xor(b0, mload(j)))
+                j := add(j, 0x20)
+                mstore(j, sha2(s, sub(dstPrime(add(0x20, s), i), s)))
+                i := add(i, 1)
+                if eq(i, 9) { break }
+            }
+
+            mstore(add(s, 0x00), 0x40)
+            mstore(add(s, 0x20), 0x20)
+            mstore(add(s, 0x40), 0x40)
+            mstore(add(s, 0xa0), 1)
+            mstore(add(s, 0xc0), 0x000000000000000000000000000000001a0111ea397fe69a4b1ba7b6434bacd7)
+            mstore(add(s, 0xe0), 0x64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab)
+            modfield(s, add(b, 0x00))
+            modfield(s, add(b, 0x40))
+            modfield(s, add(b, 0x80))
+            modfield(s, add(b, 0xc0))
+
+            mapToG2(b, result)
+            mapToG2(add(0x80, b), add(0x100, result))
+
+            if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100))) {
+                mstore(0x00, 0xc55e5e33) // `G2AddFailed()`.
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
     /// @notice Converts a private key to a public key by multiplying the generator point with the private key
     /// @param privateKey The private key to convert
     /// @return The public key
@@ -135,47 +231,80 @@ library BLSUtils {
         return mul(G1_GENERATOR(), _u(privateKey));
     }
 
-    /// @notice Converts a message to a G2 point
-    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
-    /// @param domainSeparator The domain separation tag
-    /// @return A point in G2
-    function toMessagePoint(bytes memory message, bytes memory domainSeparator)
-        internal
-        view
-        returns (BLS.G2Point memory)
-    {
-        return BLS.toG2(
-            BLS.Fp2({ c0_a: 0, c0_b: 0, c1_a: 0, c1_b: keccak256(abi.encodePacked(domainSeparator, message)) })
+    /// @notice Computes the signingRoot
+    ///
+    ///                      signingRoot
+    ///                       /         \
+    ///                  subTreeRoot   signingDomain
+    ///                 /           \
+    ///                *             *
+    ///             /    \         /   \
+    ///    messageHash signingId  nonce chainId
+    ///
+    /// @param messageHash The hash of the message to sign
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
+    /// @return The signing root
+    function computeSigningRoot(
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (BLS.G2Point memory) {
+        bytes32 subTreeRoot = sha256(
+            abi.encodePacked(
+                sha256(abi.encodePacked(messageHash, signingId)),
+                sha256(abi.encodePacked(_toLittleEndian(nonce), chainId))
+            )
         );
+        bytes32 signingRoot = sha256(abi.encodePacked(subTreeRoot, signingDomain));
+
+        // Convert the signing root hash to a G2 point
+        return _hashToG2(abi.encodePacked(signingRoot));
     }
 
     /// @notice Signs a message
-    /// @param message Arbitrarylength byte string to be hashed with the domainSeparator
     /// @param privateKey The private key to sign with
-    /// @param domainSeparator The domain separation tag
+    /// @param messageHash The hash of the message to sign
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
     /// @return A signature in G2
-    function sign(bytes memory message, uint256 privateKey, bytes memory domainSeparator)
-        internal
-        view
-        returns (BLS.G2Point memory)
-    {
-        return mul(toMessagePoint(message, domainSeparator), _u(privateKey));
+    function sign(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (BLS.G2Point memory) {
+        return mul(computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId), _u(privateKey));
     }
 
     /// @notice Verifies a signature
-    /// @param message Arbitrarylength byte string to be hashed
+    /// @param messageHash The hash of the message to verify
     /// @param signature The signature to verify
     /// @param publicKey The public key to verify against
-    /// @param domainSeparator The domain separation tag
+    /// @param signingDomain The domain mixin for the signer (Commit-Boost)
+    /// @param signingId The signing ID for the module (Commit-Boost)
+    /// @param nonce The nonce for the module (Commit-Boost)
+    /// @param chainId The chain ID
     /// @return True if the signature is valid, false otherwise
     function verify(
-        bytes memory message,
+        bytes32 messageHash,
         BLS.G2Point memory signature,
         BLS.G1Point memory publicKey,
-        bytes memory domainSeparator
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
     ) public view returns (bool) {
         // Hash the message bytes into a G2 point
-        BLS.G2Point memory messagePoint = toMessagePoint(message, domainSeparator);
+        BLS.G2Point memory signingRoot = computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
 
         // Invoke the BLS.pairing check to verify the signature.
         BLS.G1Point[] memory g1Points = new BLS.G1Point[](2);
@@ -184,7 +313,7 @@ library BLSUtils {
 
         BLS.G2Point[] memory g2Points = new BLS.G2Point[](2);
         g2Points[0] = signature;
-        g2Points[1] = messagePoint;
+        g2Points[1] = signingRoot;
 
         return BLS.pairing(g1Points, g2Points);
     }
@@ -211,5 +340,16 @@ library BLSUtils {
         }
 
         return r;
+    }
+
+    /// @notice Helper to convert a u64 to a little-endian bytes
+    /// @param x The u64 to convert
+    /// @return b The little-endian bytes
+    function _toLittleEndian(uint64 x) public pure returns (bytes32) {
+        bytes memory b = new bytes(8);
+        for (uint256 i = 0; i < 8; i++) {
+            b[i] = bytes1(uint8(x >> (8 * i)));
+        }
+        return bytes32(b);
     }
 }

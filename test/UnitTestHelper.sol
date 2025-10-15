@@ -7,6 +7,7 @@ import "../src/IRegistry.sol";
 import "../src/ISlasher.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
 
 contract UnitTestHelper is Test {
     Registry registry;
@@ -25,26 +26,33 @@ contract UnitTestHelper is Test {
             fraudProofWindow: 86400,
             unregistrationDelay: 86400,
             slashWindow: 86400,
-            optInDelay: 86400
+            optInDelay: 86400,
+            signingDomain: "0x436f6d6d",
+            chainId: "0x01"
         });
     }
 
     /// @dev Helper to create a BLS signature for a registration
-    function _registrationSignature(uint256 secretKey, address owner) internal view returns (BLS.G2Point memory) {
-        bytes memory message = abi.encode(owner);
-        return BLSUtils.sign(message, secretKey, registry.REGISTRATION_DOMAIN_SEPARATOR());
+    function _registrationSignature(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
+        internal
+        view
+        returns (BLS.G2Point memory)
+    {
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Registration, owner));
+        IRegistry.Config memory config = defaultConfig();
+        return BLSUtils.sign(secretKey, messageHash, config.signingDomain, signingId, nonce, config.chainId);
     }
 
     /// @dev Creates a Registration struct with a real BLS keypair
-    function _createSignedRegistration(uint256 secretKey, address owner)
+    function _createSignedRegistration(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
         internal
         view
         returns (IRegistry.SignedRegistration memory)
     {
         BLS.G1Point memory pubkey = BLSUtils.toPublicKey(secretKey);
-        BLS.G2Point memory signature = _registrationSignature(secretKey, owner);
+        BLS.G2Point memory signature = _registrationSignature(secretKey, owner, signingId, nonce);
 
-        return IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature });
+        return IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature, nonce: nonce });
     }
 
     /// @dev Helper to verify operator data matches expected values
@@ -55,7 +63,7 @@ contract UnitTestHelper is Test {
         uint48 expectedRegisteredAt,
         uint48 expectedUnregisteredAt,
         uint48 expectedSlashedAt
-    ) internal {
+    ) internal view {
         IRegistry.OperatorData memory operatorData = registry.getOperatorData(registrationRoot);
         assertEq(operatorData.owner, expectedOwner, "Wrong withdrawal address");
         assertEq(operatorData.collateralWei, expectedCollateral, "Wrong collateral amount");
@@ -64,13 +72,13 @@ contract UnitTestHelper is Test {
         assertEq(operatorData.slashedAt, expectedSlashedAt, "Wrong slashed timestamp");
     }
 
-    function _setupSingleRegistration(uint256 secretKey, address owner)
+    function _setupSingleRegistration(uint256 secretKey, address owner, bytes32 signingId, uint64 nonce)
         internal
         view
         returns (IRegistry.SignedRegistration[] memory)
     {
         IRegistry.SignedRegistration[] memory registrations = new IRegistry.SignedRegistration[](1);
-        registrations[0] = _createSignedRegistration(secretKey, owner);
+        registrations[0] = _createSignedRegistration(secretKey, owner, signingId, nonce);
         return registrations;
     }
 
@@ -83,7 +91,7 @@ contract UnitTestHelper is Test {
         uint256 _challengerBalanceBefore,
         uint256 _operatorBalanceBefore,
         uint256 _urcBalanceBefore
-    ) internal {
+    ) internal view {
         assertEq(_challenger.balance, _challengerBalanceBefore + _rewardAmount, "challenger didn't receive reward");
         assertEq(
             _operator.balance,
@@ -99,43 +107,76 @@ contract UnitTestHelper is Test {
         uint256 _rewardAmount,
         uint256 _challengerBalanceBefore,
         uint256 _urcBalanceBefore
-    ) internal {
+    ) internal view {
         assertEq(_challenger.balance, _challengerBalanceBefore + _rewardAmount, "challenger didn't receive reward");
         assertEq(address(registry).balance, _urcBalanceBefore - _slashedAmount - _rewardAmount, "urc balance incorrect");
     }
 
-    function basicRegistration(uint256 secretKey, uint256 collateral, address owner)
+    function basicRegistration(uint256 secretKey, uint256 collateral, address owner, bytes32 signingId, uint64 nonce)
         public
         returns (bytes32 registrationRoot, IRegistry.SignedRegistration[] memory registrations)
     {
-        registrations = _setupSingleRegistration(secretKey, owner);
+        registrations = _setupSingleRegistration(secretKey, owner, signingId, nonce);
 
-        registrationRoot = registry.register{ value: collateral }(registrations, owner);
+        registrationRoot = registry.register{ value: collateral }(registrations, owner, signingId);
 
         _assertRegistration(registrationRoot, owner, uint80(collateral), uint48(block.timestamp), type(uint48).max, 0);
     }
 
-    function basicCommitment(uint256 secretKey, address slasher, bytes memory payload)
-        public
-        pure
-        returns (ISlasher.SignedCommitment memory signedCommitment)
-    {
-        ISlasher.Commitment memory commitment =
-            ISlasher.Commitment({ commitmentType: 0, payload: payload, slasher: slasher });
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(secretKey, keccak256(abi.encode(commitment)));
-        bytes memory signature = abi.encodePacked(r, s, v);
-        signedCommitment = ISlasher.SignedCommitment({ commitment: commitment, signature: signature });
+    function sign(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (bytes memory signature) {
+        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
+        return abi.encodePacked(r, s, v);
     }
 
-    function signDelegation(uint256 secretKey, ISlasher.Delegation memory delegation)
+    function basicCommitment(
+        uint256 secretKey,
+        address slasher,
+        bytes memory payload,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId,
+        bytes32 signingDomain
+    ) public view returns (ISlasher.SignedCommitment memory signedCommitment) {
+        // Create CommitmentRequest and compute requestHash
+        ISlasher.CommitmentRequest memory request =
+            ISlasher.CommitmentRequest({ commitmentType: 0, payload: payload, slasher: slasher });
+        bytes32 requestHash = keccak256(abi.encode(request));
+
+        // Create Commitment with requestHash
+        ISlasher.Commitment memory commitment =
+            ISlasher.Commitment({ commitmentType: 0, payload: payload, requestHash: requestHash, slasher: slasher });
+
+        // Sign using the new structured approach
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Commitment, commitment));
+        bytes memory signature = sign(secretKey, messageHash, signingDomain, signingId, nonce, chainId);
+
+        signedCommitment = ISlasher.SignedCommitment({
+            commitment: commitment, nonce: nonce, signingId: signingId, signature: signature
+        });
+    }
+
+    function signDelegation(uint256 secretKey, ISlasher.Delegation memory delegation, bytes32 signingId, uint64 nonce)
         public
         view
         returns (ISlasher.SignedDelegation memory)
     {
+        IRegistry.Config memory config = defaultConfig();
+
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
         BLS.G2Point memory signature =
-            BLSUtils.sign(abi.encode(delegation), secretKey, registry.DELEGATION_DOMAIN_SEPARATOR());
-        return ISlasher.SignedDelegation({ delegation: delegation, signature: signature });
+            BLSUtils.sign(secretKey, messageHash, config.signingDomain, signingId, nonce, config.chainId);
+        return
+            ISlasher.SignedDelegation({
+                delegation: delegation, signature: signature, nonce: nonce, signingId: signingId
+            });
     }
 
     struct RegisterAndDelegateParams {
@@ -148,6 +189,8 @@ contract UnitTestHelper is Test {
         address slasher;
         bytes metadata;
         uint64 slot;
+        bytes32 signingId;
+        uint64 nonce;
     }
 
     struct RegisterAndDelegateResult {
@@ -161,8 +204,9 @@ contract UnitTestHelper is Test {
         returns (RegisterAndDelegateResult memory result)
     {
         // Single registration
-        (result.registrationRoot, result.registrations) =
-            basicRegistration(params.proposerSecretKey, params.collateral, params.owner);
+        (result.registrationRoot, result.registrations) = basicRegistration(
+            params.proposerSecretKey, params.collateral, params.owner, params.signingId, params.nonce
+        );
 
         // Sign delegation
         ISlasher.Delegation memory delegation = ISlasher.Delegation({
@@ -173,7 +217,7 @@ contract UnitTestHelper is Test {
             metadata: params.metadata
         });
 
-        result.signedDelegation = signDelegation(params.proposerSecretKey, delegation);
+        result.signedDelegation = signDelegation(params.proposerSecretKey, delegation, params.signingId, params.nonce);
     }
 
     function registerAndDelegateReentrant(RegisterAndDelegateParams memory params)
@@ -182,11 +226,12 @@ contract UnitTestHelper is Test {
     {
         ReentrantSlashEquivocation reentrantContract = new ReentrantSlashEquivocation(address(registry));
 
-        result.registrations = _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract));
+        result.registrations =
+            _setupSingleRegistration(SECRET_KEY_1, address(reentrantContract), params.signingId, params.nonce);
 
         // register via reentrant contract
         vm.deal(address(reentrantContract), 100 ether);
-        reentrantContract.register(result.registrations);
+        reentrantContract.register(result.registrations, params.signingId);
         result.registrationRoot = reentrantContract.registrationRoot();
         reentrantContractAddress = address(reentrantContract);
 
@@ -199,7 +244,7 @@ contract UnitTestHelper is Test {
             metadata: params.metadata
         });
 
-        result.signedDelegation = signDelegation(params.proposerSecretKey, delegation);
+        result.signedDelegation = signDelegation(params.proposerSecretKey, delegation, params.signingId, params.nonce);
 
         // Sign a second delegation to equivocate
         ISlasher.Delegation memory delegationTwo = ISlasher.Delegation({
@@ -209,10 +254,18 @@ contract UnitTestHelper is Test {
             slot: params.slot,
             metadata: "different metadata"
         });
-        ISlasher.SignedDelegation memory signedDelegationTwo = signDelegation(params.proposerSecretKey, delegationTwo);
+        ISlasher.SignedDelegation memory signedDelegationTwo =
+            signDelegation(params.proposerSecretKey, delegationTwo, params.signingId, params.nonce);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(params.committerSecretKey, params.slasher, "");
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            params.committerSecretKey,
+            params.slasher,
+            "",
+            params.signingId,
+            params.nonce,
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // save info for later reentrancy
         reentrantContract.saveResult(params, result, signedCommitment, signedDelegationTwo);
@@ -256,10 +309,10 @@ contract ReentrantContract {
         signedDelegationTwo = _signedDelegationTwo;
     }
 
-    function register(IRegistry.SignedRegistration[] memory _registrations) public {
+    function register(IRegistry.SignedRegistration[] memory _registrations, bytes32 signingId) public {
         require(_registrations.length == 1, "test harness supports only 1 registration");
         registrations[0] = _registrations[0];
-        registrationRoot = registry.register{ value: collateral }(_registrations, address(this));
+        registrationRoot = registry.register{ value: collateral }(_registrations, address(this), signingId);
     }
 
     function unregister() public {
@@ -324,7 +377,8 @@ contract ReentrantSlashableRegistrationContract is ReentrantContract {
 
         IRegistry.SignedRegistration[] memory _registrations = new IRegistry.SignedRegistration[](1);
         _registrations[0] = registrations[0];
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(_registrations, address(this), 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(_registrations, address(this), 0, params.signingId);
         try registry.slashRegistration(proof) {
             revert("should not be able to slash registration again");
         } catch (bytes memory _reason) {
@@ -334,7 +388,7 @@ contract ReentrantSlashableRegistrationContract is ReentrantContract {
         // expected re-registering to fail
         _registrations[0] = registrations[0];
         require(_registrations.length == 1, "test harness supports only 1 registration");
-        try registry.register{ value: collateral }(_registrations, address(this)) {
+        try registry.register{ value: collateral }(_registrations, address(this), params.signingId) {
             revert("should not be able to register");
         } catch (bytes memory _reason) {
             errors += 1;

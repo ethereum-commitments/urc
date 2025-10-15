@@ -153,68 +153,79 @@ contract MerkleTreeGasTest is Test {
     }
 
     function test_gas_generateTree_1() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(1);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_2() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(2);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_4() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(4);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_8() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(8);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_16() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(16);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_32() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(32);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_64() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(64);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_128() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(128);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_256() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(256);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_512() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(512);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 
     function test_gas_generateTree_1024() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(1024);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         foo.generateTree(leaves);
     }
 }
@@ -246,104 +257,121 @@ contract MerkleTreeBuildGasTest is Test {
     }
 
     function test_gas_buildTree_1() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(1);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_2() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(2);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_4() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(4);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_8() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(8);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_16() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(16);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_32() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(32);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_64() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(64);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_128() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(128);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_256() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(256);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_512() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(512);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_1024() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(1024);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_2048() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(2048);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_4096() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(4096);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_8192() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(8192);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_16384() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(16384);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_32768() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(32768);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 
     function test_gas_buildTree_65536() public {
+        vm.pauseGasMetering();
         bytes32[] memory leaves = getLeaves(65536);
-        vm.resetGasMetering();
+        vm.resumeGasMetering();
         bar.build(leaves);
     }
 }

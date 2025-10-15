@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0 <0.9.0;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import { BLSUtils } from "./lib/BLSUtils.sol";
+import { ECDSAUtils } from "./lib/ECDSAUtils.sol";
 import { MerkleTree } from "./lib/MerkleTree.sol";
 import { IRegistry } from "./IRegistry.sol";
 import { ISlasher } from "./ISlasher.sol";
@@ -17,8 +16,6 @@ contract Registry is IRegistry {
 
     // Constants
     address internal constant BURNER_ADDRESS = address(0x0000000000000000000000000000000000000000);
-    bytes public constant REGISTRATION_DOMAIN_SEPARATOR = "0x00555243"; // "URC" in little endian
-    bytes public constant DELEGATION_DOMAIN_SEPARATOR = "0x0044656c"; // "Del" in little endian
 
     /// @notice The configuration for the URC
     Config private config;
@@ -34,7 +31,7 @@ contract Registry is IRegistry {
      */
 
     /// @inheritdoc IRegistry
-    function register(SignedRegistration[] calldata registrations, address owner)
+    function register(SignedRegistration[] calldata registrations, address owner, bytes32 signingId)
         external
         payable
         returns (bytes32 registrationRoot)
@@ -51,7 +48,7 @@ contract Registry is IRegistry {
         if (owner == address(0)) revert InvalidOwnerAddress();
 
         // note: owner address is mixed into the Merkle leaves to bind the registrationRoot to the owner
-        registrationRoot = _merkleizeSignedRegistrationsWithOwner(registrations, owner);
+        registrationRoot = _merkleizeSignedRegistrationsWithOwner(registrations, owner, signingId);
 
         // Revert on a bad registration root
         if (registrationRoot == bytes32(0)) revert InvalidRegistrationRoot();
@@ -74,9 +71,8 @@ contract Registry is IRegistry {
         newOperator.data.slashedAt = 0;
 
         // Store the initial collateral value in the history
-        newOperator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: uint80(msg.value) })
-        );
+        newOperator.collateralHistory
+            .push(CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: uint80(msg.value) }));
 
         emit OperatorRegistered(registrationRoot, msg.value, owner);
     }
@@ -243,14 +239,18 @@ contract Registry is IRegistry {
         _verifyMerkleProof(proof);
 
         // Reconstruct registration message
-        bytes memory message = abi.encode(operator.data.owner);
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Registration, operator.data.owner));
 
-        // Verify registration signature, note the domain separator mixin
-        if (
-            BLSUtils.verify(
-                message, proof.registration.signature, proof.registration.pubkey, REGISTRATION_DOMAIN_SEPARATOR
-            )
-        ) {
+        // Verify registration signature
+        if (BLSUtils.verify(
+                messageHash,
+                proof.registration.signature,
+                proof.registration.pubkey,
+                config.signingDomain,
+                proof.signingId,
+                proof.registration.nonce,
+                config.chainId
+            )) {
             revert FraudProofChallengeInvalid();
         }
 
@@ -266,9 +266,10 @@ contract Registry is IRegistry {
         _rewardAndBurn(config.minCollateralWei / 2, msg.sender);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         emit OperatorSlashed(
             SlashingType.Fraud,
@@ -302,7 +303,14 @@ contract Registry is IRegistry {
         _verifyDelegation(proof, delegation);
 
         // Verify the commitment was signed by the commitment key from the Delegation
-        address committer = ECDSA.recover(keccak256(abi.encode(commitment.commitment)), commitment.signature);
+        address committer = ECDSAUtils.recover(
+            keccak256(abi.encode(MessageType.Commitment, commitment.commitment)),
+            commitment.signature,
+            config.signingDomain,
+            commitment.signingId,
+            commitment.nonce,
+            config.chainId
+        );
         if (committer != delegation.delegation.committer) {
             revert UnauthorizedCommitment();
         }
@@ -311,9 +319,8 @@ contract Registry is IRegistry {
         slashedBefore[slashingDigest] = true;
 
         // Call the Slasher contract to slash the operator
-        slashAmountWei = ISlasher(commitment.commitment.slasher).slash(
-            delegation.delegation, commitment.commitment, committer, evidence, msg.sender
-        );
+        slashAmountWei = ISlasher(commitment.commitment.slasher)
+            .slash(delegation.delegation, commitment.commitment, committer, evidence, msg.sender);
 
         // Handle the slashing accounting
         _slashCommitment(proof.registrationRoot, slashAmountWei, commitment.commitment.slasher);
@@ -340,7 +347,14 @@ contract Registry is IRegistry {
         }
 
         // Verify the commitment was signed by the registered committer from the optInToSlasher() function
-        address committer = ECDSA.recover(keccak256(abi.encode(commitment.commitment)), commitment.signature);
+        address committer = ECDSAUtils.recover(
+            keccak256(abi.encode(MessageType.Commitment, commitment.commitment)),
+            commitment.signature,
+            config.signingDomain,
+            commitment.signingId,
+            commitment.nonce,
+            config.chainId
+        );
         if (committer != slasherCommitment.committer) {
             revert UnauthorizedCommitment();
         }
@@ -357,9 +371,8 @@ contract Registry is IRegistry {
         ISlasher.Delegation memory dummyDelegation;
 
         // Call the Slasher contract to slash the operator
-        slashAmountWei = ISlasher(commitment.commitment.slasher).slash(
-            dummyDelegation, commitment.commitment, committer, evidence, msg.sender
-        );
+        slashAmountWei = ISlasher(commitment.commitment.slasher)
+            .slash(dummyDelegation, commitment.commitment, committer, evidence, msg.sender);
 
         // Handle the slashing accounting
         _slashCommitment(registrationRoot, slashAmountWei, commitment.commitment.slasher);
@@ -385,6 +398,8 @@ contract Registry is IRegistry {
                 && keccak256(abi.encode(delegationOne.delegation.delegate))
                     == keccak256(abi.encode(delegationTwo.delegation.delegate))
                 && delegationOne.delegation.committer == delegationTwo.delegation.committer
+                && keccak256(abi.encode(delegationOne.delegation.metadata))
+                    == keccak256(abi.encode(delegationTwo.delegation.metadata))
         ) {
             revert DelegationsAreSame();
         }
@@ -430,9 +445,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei -= uint80(config.minCollateralWei);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         // Burn half of the MIN_COLLATERAL amount and reward the challenger the other half
         _rewardAndBurn(config.minCollateralWei / 2, msg.sender);
@@ -472,9 +488,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei += uint80(msg.value);
 
         // Store the updated collateral value in the history
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         emit CollateralAdded(registrationRoot, operator.data.collateralWei);
     }
@@ -641,15 +658,17 @@ contract Registry is IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function getRegistrationProof(SignedRegistration[] calldata regs, address owner, uint256 leafIndex)
-        external
-        pure
-        returns (RegistrationProof memory proof)
-    {
-        proof.registrationRoot = _merkleizeSignedRegistrationsWithOwner(regs, owner);
+    function getRegistrationProof(
+        SignedRegistration[] calldata regs,
+        address owner,
+        uint256 leafIndex,
+        bytes32 signingId
+    ) external pure returns (RegistrationProof memory proof) {
+        proof.registrationRoot = _merkleizeSignedRegistrationsWithOwner(regs, owner, signingId);
         proof.registration = regs[leafIndex];
+        proof.signingId = signingId;
 
-        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner);
+        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner, signingId);
         proof.merkleProof = MerkleTree.generateProof(leaves, leafIndex);
     }
 
@@ -686,9 +705,10 @@ contract Registry is IRegistry {
         operator.data.collateralWei -= uint80(slashAmountWei);
 
         // Push collateral changes
-        operator.collateralHistory.push(
-            CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
-        );
+        operator.collateralHistory
+            .push(
+                CollateralRecord({ timestamp: uint64(block.timestamp), collateralValue: operator.data.collateralWei })
+            );
 
         // Burn the slashed amount
         _burnETH(slashAmountWei);
@@ -702,13 +722,13 @@ contract Registry is IRegistry {
     /// @dev Leaves are created by abi-encoding the `SignedRegistration` structs with the owner address, then hashing with keccak256.
     /// @param regs The array of `SignedRegistration` structs to merkleize
     /// @return registrationRoot The merkle root of the registration
-    function _merkleizeSignedRegistrationsWithOwner(SignedRegistration[] calldata regs, address owner)
-        internal
-        pure
-        returns (bytes32 registrationRoot)
-    {
+    function _merkleizeSignedRegistrationsWithOwner(
+        SignedRegistration[] calldata regs,
+        address owner,
+        bytes32 signingId
+    ) internal pure returns (bytes32 registrationRoot) {
         // Create leaves array with padding
-        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner);
+        bytes32[] memory leaves = MerkleTree.hashToLeaves(regs, owner, signingId);
 
         // Merkleize the leaves
         registrationRoot = MerkleTree.generateTree(leaves);
@@ -721,7 +741,7 @@ contract Registry is IRegistry {
     /// @param proof The merkle proof to verify the operator's key is in the registry
     function _verifyMerkleProof(RegistrationProof calldata proof) internal view {
         address owner = operators[proof.registrationRoot].data.owner;
-        bytes32 leaf = keccak256(abi.encode(proof.registration, owner));
+        bytes32 leaf = keccak256(abi.encode(proof.registration, owner, proof.signingId));
         if (!MerkleTree.verifyProofCalldata(proof.registrationRoot, leaf, proof.merkleProof)) {
             revert InvalidProof();
         }
@@ -730,15 +750,17 @@ contract Registry is IRegistry {
     /// @notice Verifies a delegation was signed by an operator's registered BLS key
     /// @dev The function will return revert if either the registration proof is invalid
     /// @dev or the Delegation signature is invalid
-    /// @dev The `signedDelegation.signature` is expected to be the abi-encoded `Delegation` message mixed with the URC's `DELEGATION_DOMAIN_SEPARATOR`.
     /// @param proof The merkle proof to verify the operator's key is in the registry
-    /// @param delegation The SignedDelegation signed by the operator's BLS key
-    function _verifyDelegation(RegistrationProof calldata proof, ISlasher.SignedDelegation calldata delegation)
+    /// @param signedDelegation The SignedDelegation signed by the operator's BLS key
+    function _verifyDelegation(RegistrationProof calldata proof, ISlasher.SignedDelegation calldata signedDelegation)
         internal
         view
     {
         // Verify the public key in the proof is the same as the public key in the SignedDelegation
-        if (keccak256(abi.encode(proof.registration.pubkey)) != keccak256(abi.encode(delegation.delegation.proposer))) {
+        if (
+            keccak256(abi.encode(proof.registration.pubkey))
+                != keccak256(abi.encode(signedDelegation.delegation.proposer))
+        ) {
             revert InvalidProof();
         }
 
@@ -746,12 +768,18 @@ contract Registry is IRegistry {
         _verifyMerkleProof(proof);
 
         // Reconstruct Delegation message
-        bytes memory message = abi.encode(delegation.delegation);
+        bytes32 messageHash = keccak256(abi.encode(MessageType.Delegation, signedDelegation.delegation));
 
         // Verify it was signed by the registered BLS key
-        if (
-            !BLSUtils.verify(message, delegation.signature, delegation.delegation.proposer, DELEGATION_DOMAIN_SEPARATOR)
-        ) {
+        if (!BLSUtils.verify(
+                messageHash,
+                signedDelegation.signature,
+                signedDelegation.delegation.proposer,
+                config.signingDomain,
+                signedDelegation.signingId,
+                signedDelegation.nonce,
+                config.chainId
+            )) {
             revert DelegationSignatureInvalid();
         }
     }

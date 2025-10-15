@@ -36,9 +36,9 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
     uint256 collateral = 1.1 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("mainnet"));
         registry = new Registry(defaultConfig());
         slasher = new InclusionPreconfSlasher(slashAmountWei, address(registry));
         delegatePubKey = BLSUtils.toPublicKey(SECRET_KEY_2);
@@ -65,7 +65,9 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             committer: committer,
             slasher: address(slasher),
             metadata: metadata,
-            slot: slot
+            slot: slot,
+            signingId: signingId,
+            nonce: 1337
         });
 
         // Register operator to URC and signs delegation message
@@ -97,7 +99,15 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         // Delegate signs a commitment to include a TX
         TransactionCommitment memory txCommitment =
             _createInclusionCommitment(inclusionBlockNumber, id, committer, committerSecretKey);
-        signedCommitment = basicCommitment(committerSecretKey, address(slasher), abi.encode(txCommitment));
+        signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(txCommitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Build the inclusion proof to prove failure to exclude
         string memory rawPreviousHeader = vm.readFile("./test/testdata/header_20785011.json");
@@ -187,8 +197,10 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
             committer: committer,
             slasher: address(slasher),
             metadata: metadata,
-            slot: 0 // already expired
-         });
+            slot: 0, // already expired
+            signingId: signingId,
+            nonce: 1337
+        });
         RegisterAndDelegateResult memory result = registerAndDelegate(params);
 
         // Create commitment for expired delegation
@@ -197,8 +209,15 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         TransactionCommitment memory commitment =
             _createInclusionCommitment(inclusionBlockNumber, 1, delegate, delegatePK);
 
-        ISlasher.SignedCommitment memory signedCommitment =
-            basicCommitment(committerSecretKey, address(slasher), abi.encode(commitment));
+        ISlasher.SignedCommitment memory signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(commitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         // Try to create challenge with expired delegation
         uint256 bond = slasher.CHALLENGE_BOND();
@@ -231,7 +250,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         vm.warp(block.timestamp + slasher.CHALLENGE_WINDOW() + 1);
 
         // Merkle proof for URC registration
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         bytes memory evidence = abi.encode(inclusionProof);
 
@@ -273,7 +293,8 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
         vm.warp(block.timestamp + slasher.CHALLENGE_WINDOW() + 1);
 
         // Merkle proof for URC registration
-        IRegistry.RegistrationProof memory proof = registry.getRegistrationProof(result.registrations, operator, 0);
+        IRegistry.RegistrationProof memory proof =
+            registry.getRegistrationProof(result.registrations, operator, 0, signingId);
 
         // Try to slash as different address (not the original challenger)
         vm.prank(operator);
@@ -318,6 +339,10 @@ contract InclusionPreconfSlasherTest is UnitTestHelper, PreconfStructs {
 
         // Verify challenger's balance decreased by bond amount
         assertEq(challenger.balance, challengerBalanceBefore - bond);
+
+        // To save on RPC calls, we pre-fill the blockhashes with the expected values
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber - 1, keccak256(inclusionProof.previousBlockHeaderRLP));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber, keccak256(inclusionProof.inclusionBlockHeaderRLP));
 
         // Prove the challenge is fraudulent (transaction was actually included)
         vm.prank(operator);

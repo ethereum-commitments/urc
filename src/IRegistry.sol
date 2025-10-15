@@ -12,7 +12,6 @@ interface IRegistry {
      *                                *
      *
      */
-
     /// @notice A struct to track the configuration of the registry
     struct Config {
         /// The minimum collateral required to register
@@ -25,6 +24,10 @@ interface IRegistry {
         uint32 slashWindow;
         /// The opt-in delay
         uint32 optInDelay;
+        /// The signing domain
+        bytes32 signingDomain;
+        /// The chain ID
+        bytes32 chainId;
     }
 
     /// @notice A registration of a BLS key
@@ -33,6 +36,8 @@ interface IRegistry {
         BLS.G1Point pubkey;
         /// BLS signature
         BLS.G2Point signature;
+        /// Nonce
+        uint64 nonce;
     }
 
     /// @notice Data about an operator
@@ -90,6 +95,14 @@ interface IRegistry {
         Commitment
     }
 
+    enum MessageType {
+        Reserved,
+        Registration,
+        Delegation,
+        Commitment,
+        Constraints
+    }
+
     struct RegistrationProof {
         /// The merkle root of the registration merkle tree
         bytes32 registrationRoot;
@@ -97,6 +110,8 @@ interface IRegistry {
         SignedRegistration registration;
         /// The merkle proof to verify the operator's key is in the registry
         bytes32[] merkleProof;
+        /// The signing ID for the module (Commit-Boost)
+        bytes32 signingId;
     }
 
     /**
@@ -215,10 +230,12 @@ interface IRegistry {
     /// @dev - The registration root is invalid (InvalidRegistrationRoot)
     /// @dev - The collateral amount overflows the `collateralWei` field (CollateralOverflow)
     /// @dev - The owner address is 0 (InvalidOwnerAddress)
+    /// @dev It's assumed that the `signingId` is the same for all `SignedRegistration` structs
     /// @param registrations The BLS keys to register
     /// @param owner The authorized address to perform actions on behalf of the operator
+    /// @param signingId The signing ID for the module (Commit-Boost)
     /// @return registrationRoot The merkle root of the registration
-    function register(SignedRegistration[] calldata registrations, address owner)
+    function register(SignedRegistration[] calldata registrations, address owner, bytes32 signingId)
         external
         payable
         returns (bytes32 registrationRoot);
@@ -434,12 +451,16 @@ interface IRegistry {
 
     /// @notice Returns a `RegistrationProof` for a given `SignedRegistration` array
     /// @dev This function is not intended to be called on-chain due to gas costs
+    /// @dev It's assumed that the `signingId` is the same for all `SignedRegistration` structs
     /// @param regs The array of all `SignedRegistration` structs submitted during the initial call to `register()`
     /// @param owner The owner address of the operator
     /// @param leafIndex The index of the leaf the proof is for
+    /// @param signingId The signing ID for the module (Commit-Boost)
     /// @return proof The `RegistrationProof` for the given `SignedRegistration` array
-    function getRegistrationProof(SignedRegistration[] calldata regs, address owner, uint256 leafIndex)
-        external
-        pure
-        returns (RegistrationProof memory proof);
+    function getRegistrationProof(
+        SignedRegistration[] calldata regs,
+        address owner,
+        uint256 leafIndex,
+        bytes32 signingId
+    ) external pure returns (RegistrationProof memory proof);
 }

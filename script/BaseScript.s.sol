@@ -7,11 +7,9 @@ import "../src/lib/MerkleTree.sol";
 import "../src/ISlasher.sol";
 import { BLS } from "solady/utils/ext/ithaca/BLS.sol";
 import { BLSUtils } from "../src/lib/BLSUtils.sol";
+import { ECDSAUtils } from "../src/lib/ECDSAUtils.sol";
 
 contract BaseScript is Script {
-    bytes public constant REGISTRATION_DOMAIN_SEPARATOR = "0x00555243"; // "URC" in little endian
-    bytes public constant DELEGATION_DOMAIN_SEPARATOR = "0x0044656c"; // "Del" in little endian
-
     function _getDefaultJson(string memory _outfile, string memory _default)
         internal
         returns (string memory jsonFile, string memory jsonObj)
@@ -38,37 +36,52 @@ contract BaseScript is Script {
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
-    function _signTestRegistration(uint256 privateKey, address _owner)
-        internal
-        view
-        returns (IRegistry.SignedRegistration memory signedRegistration)
-    {
+    function _signTestRegistration(
+        uint256 privateKey,
+        address _owner,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (IRegistry.SignedRegistration memory signedRegistration) {
         BLS.G1Point memory pubkey = BLSUtils.toPublicKey(privateKey);
-        bytes memory message = abi.encode(_owner);
-        BLS.G2Point memory signature = BLSUtils.sign(message, privateKey, REGISTRATION_DOMAIN_SEPARATOR);
-        signedRegistration = IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature });
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Registration, _owner));
+        BLS.G2Point memory signature = BLSUtils.sign(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
+        signedRegistration = IRegistry.SignedRegistration({ pubkey: pubkey, signature: signature, nonce: nonce });
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
-    function _nRegistrations(uint256 _n, uint256 privateKeyStart, address _owner)
-        internal
-        view
-        returns (IRegistry.SignedRegistration[] memory signedRegistrations)
-    {
+    function _nRegistrations(
+        uint256 _n,
+        uint256 privateKeyStart,
+        address _owner,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        bytes32 chainId
+    ) internal view returns (IRegistry.SignedRegistration[] memory signedRegistrations) {
         signedRegistrations = new IRegistry.SignedRegistration[](_n);
         for (uint256 i = 0; i < _n; i++) {
-            signedRegistrations[i] = _signTestRegistration(privateKeyStart + i, _owner);
+            uint64 nonce = uint64(privateKeyStart + i);
+            signedRegistrations[i] =
+                _signTestRegistration(privateKeyStart + i, _owner, signingDomain, signingId, nonce, chainId);
         }
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
-    function _signTestDelegation(uint256 privateKey, ISlasher.Delegation memory delegation)
-        internal
-        view
-        returns (ISlasher.SignedDelegation memory signedDelegation)
-    {
-        BLS.G2Point memory signature = BLSUtils.sign(abi.encode(delegation), privateKey, DELEGATION_DOMAIN_SEPARATOR);
-        return ISlasher.SignedDelegation({ delegation: delegation, signature: signature });
+    function _signTestDelegation(
+        uint256 privateKey,
+        ISlasher.Delegation memory delegation,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (ISlasher.SignedDelegation memory signedDelegation) {
+        bytes32 messageHash = keccak256(abi.encode(IRegistry.MessageType.Delegation, delegation));
+        BLS.G2Point memory signature = BLSUtils.sign(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
+        return
+            ISlasher.SignedDelegation({
+                delegation: delegation, signature: signature, nonce: nonce, signingId: signingId
+            });
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
@@ -77,11 +90,15 @@ contract BaseScript is Script {
         uint256 _proposerPrivateKey,
         uint256 _delegatePrivateKeyStart,
         address _committer,
-        uint256 _slot
+        uint256 _slot,
+        bytes32 _signingDomain,
+        bytes32 _signingId,
+        bytes32 _chainId
     ) internal view returns (ISlasher.SignedDelegation[] memory signedDelegations) {
         BLS.G1Point memory proposer = BLSUtils.toPublicKey(_proposerPrivateKey);
         signedDelegations = new ISlasher.SignedDelegation[](_n);
         for (uint256 i = 0; i < _n; i++) {
+            uint64 _nonce = uint64(_delegatePrivateKeyStart + i);
             BLS.G1Point memory delegate = BLSUtils.toPublicKey(_delegatePrivateKeyStart + i);
             signedDelegations[i] = _signTestDelegation(
                 _proposerPrivateKey, // fixed proposer private key
@@ -91,22 +108,57 @@ contract BaseScript is Script {
                     committer: _committer,
                     slot: uint64(_slot),
                     metadata: ""
-                })
+                }),
+                _signingDomain,
+                _signingId,
+                _nonce,
+                _chainId
             );
         }
     }
 
     /// @dev NOT MEANT FOR PRODUCTION USE
-    function _signTestCommitment(uint256 privateKey, address slasher, uint256 commitmentType, bytes memory payload)
-        internal
-        pure
-        returns (ISlasher.SignedCommitment memory signedCommitment)
-    {
-        ISlasher.Commitment memory commitment =
-            ISlasher.Commitment({ commitmentType: uint64(commitmentType), payload: payload, slasher: slasher });
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, keccak256(abi.encode(commitment)));
-        bytes memory signature = abi.encodePacked(r, s, v);
-        return ISlasher.SignedCommitment({ commitment: commitment, signature: signature });
+    function _signTestCommitment(
+        uint256 privateKey,
+        address slasher,
+        uint256 commitmentType,
+        bytes memory payload,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId,
+        bytes32 signingDomain
+    ) internal view returns (ISlasher.SignedCommitment memory signedCommitment) {
+        // Create CommitmentRequest and compute requestHash
+        ISlasher.CommitmentRequest memory request =
+            ISlasher.CommitmentRequest({ commitmentType: uint64(commitmentType), payload: payload, slasher: slasher });
+        bytes32 requestHash = keccak256(abi.encode(request));
+
+        // Create Commitment with requestHash
+        ISlasher.Commitment memory commitment = ISlasher.Commitment({
+            commitmentType: uint64(commitmentType), payload: payload, requestHash: requestHash, slasher: slasher
+        });
+
+        // Sign using ECDSA
+        bytes32 messageHash = keccak256(abi.encode(commitment));
+        bytes memory signature = _signECDSA(privateKey, messageHash, signingDomain, signingId, nonce, chainId);
+
+        return
+            ISlasher.SignedCommitment({
+                commitment: commitment, nonce: nonce, signingId: signingId, signature: signature
+            });
+    }
+
+    function _signECDSA(
+        uint256 privateKey,
+        bytes32 messageHash,
+        bytes32 signingDomain,
+        bytes32 signingId,
+        uint64 nonce,
+        bytes32 chainId
+    ) internal view returns (bytes memory signature) {
+        bytes32 signingRoot = ECDSAUtils.computeSigningRoot(messageHash, signingDomain, signingId, nonce, chainId);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signingRoot);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function _writeSignedRegistrations(
@@ -166,6 +218,10 @@ contract BaseScript is Script {
         vm.writeJson(vm.toString(abi.encode(proof.registration)), _jsonFile, ".registration");
         vm.sleep(250);
 
+        // Write the signingId to the json file
+        vm.writeJson(vm.toString(proof.signingId), _jsonFile, ".signingId");
+        vm.sleep(250);
+
         // Write the registrationRoot to the json file
         vm.writeJson(vm.toString(proof.registrationRoot), _jsonFile, ".registrationRoot");
         vm.sleep(250);
@@ -184,6 +240,8 @@ contract BaseScript is Script {
         proof.registration = abi.decode(vm.parseJsonBytes(json, ".registration"), (IRegistry.SignedRegistration));
 
         proof.registrationRoot = vm.parseJsonBytes32(json, ".registrationRoot");
+
+        proof.signingId = vm.parseJsonBytes32(json, ".signingId");
     }
 
     function _writeDelegation(ISlasher.SignedDelegation memory delegation, string memory outfile) internal {
@@ -285,12 +343,19 @@ contract BaseScript is Script {
         return pubkeyPretty;
     }
 
-    function _prettyPrintPubKey(IRegistry.SignedRegistration memory registration) internal {
+    function _prettyPrintPubKey(IRegistry.SignedRegistration memory registration) internal pure {
         // duplicate to prevent weird foundry memory issues
         BLS.G1Point memory pubkeyCopy = BLS.G1Point(
             registration.pubkey.x_a, registration.pubkey.x_b, registration.pubkey.y_a, registration.pubkey.y_b
         );
         bytes memory pubkeyPretty = _prettyPubKey(abi.encode(BLSUtils.compress(pubkeyCopy)));
         console.log("Pubkey: ", vm.toString(pubkeyPretty));
+    }
+
+    function _defaultSigningParams() internal returns (bytes32 signingDomain, bytes32 chainId) {
+        string memory configPath = "config/registry.json";
+        string memory configJson = vm.readFile(configPath);
+        signingDomain = vm.parseJsonBytes32(configJson, ".signingDomain");
+        chainId = vm.parseJsonBytes32(configJson, ".chainId");
     }
 }

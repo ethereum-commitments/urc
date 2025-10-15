@@ -1,9 +1,9 @@
 {
-  "minCollateralWei": 0,
-  "fraudProofWindow": 0,
-  "unregistrationDelay": 0,
-  "slashWindow": 0,
-  "optInDelay": 0,
+  "minCollateralWei": 1000000000000000000,
+  "fraudProofWindow": 10,
+  "unregistrationDelay": 10,
+  "slashWindow": 10,
+  "optInDelay": 10,
   "signingDomain": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000"
 }

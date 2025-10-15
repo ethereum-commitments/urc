@@ -36,9 +36,9 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
     uint256 collateral = 1.1 ether;
     uint256 committerSecretKey;
     address committer;
+    bytes32 signingId = keccak256("test-signing-id");
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("mainnet"));
         slasher = new StateLockSlasher(slashAmountWei);
         registry = new Registry(defaultConfig());
         (committer, committerSecretKey) = makeAddrAndKey("commitmentsKey");
@@ -121,7 +121,9 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
             committer: committer,
             slasher: address(slasher),
             metadata: metadata,
-            slot: slot
+            slot: slot,
+            signingId: signingId,
+            nonce: 1337
         });
 
         // Register operator to URC and signs delegation message
@@ -182,7 +184,15 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
         bytes32 inclusionTxRoot = slasher._decodeBlockHeaderRLP(inclusionProof.inclusionBlockHeaderRLP).txRoot;
         assertEq(inclusionTxRoot, vm.parseJsonBytes32(txProof, ".root"));
 
-        signedCommitment = basicCommitment(committerSecretKey, address(slasher), abi.encode(commitment));
+        signedCommitment = basicCommitment(
+            committerSecretKey,
+            address(slasher),
+            abi.encode(commitment),
+            signingId,
+            uint64(1),
+            defaultConfig().chainId,
+            defaultConfig().signingDomain
+        );
 
         evidence = abi.encode(inclusionProof);
     }
@@ -202,7 +212,12 @@ contract StateLockSlasherTest is UnitTestHelper, PreconfStructs {
         uint256 urcBalanceBefore = address(registry).balance;
 
         IRegistry.RegistrationProof memory proof =
-            registry.getRegistrationProof(result.registrations, operatorData.owner, 0);
+            registry.getRegistrationProof(result.registrations, operatorData.owner, 0, signingId);
+
+        // To save on RPC calls, we pre-fill the blockhashes with the expected values
+        PreconfStructs.InclusionProof memory inclusionProof = abi.decode(evidence, (InclusionProof));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber - 1, keccak256(inclusionProof.previousBlockHeaderRLP));
+        vm.setBlockhash(inclusionProof.inclusionBlockNumber, keccak256(inclusionProof.inclusionBlockHeaderRLP));
 
         // Slash via URC
         vm.startPrank(challenger);
